@@ -34,7 +34,7 @@
 
 4. 모터 출력 로직
 
-4. 시스템 Voltage 및 센서 상태 측정 처리
+5. 시스템 Voltage 및 센서 상태 측정 처리
 
 	1. CAN, Bluetooth, Sys Volt 정상 체크
 	
@@ -43,4 +43,11 @@
 		else :
 			bending Sensor, Gyro Sensor, Switch 정상 체크
 
-5. 에러 처리
+6. 에러 처리
+	1. 시스템 상태 측정값 확인
+	2. Error & Warnning 값 확인
+	3. if (로봇팔)
+			LDC에 Error & Warnning 값 출력
+		else :
+			LED로 출력
+			1번 점등, 2번 점등, 3번 점등 == 각 점등마다 에러 확인
