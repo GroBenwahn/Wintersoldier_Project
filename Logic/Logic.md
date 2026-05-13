@@ -5,6 +5,17 @@
 #  #if (ProjModeState)
 #  #endif
 
+FreeRTOS Task 목록
+{
+	1. defalut Task : 일반적인 테스크 (**ms)
+	2. Comm_Task : 통신용 테스크 (10ms)
+	3. Servo_Task : 모터용 테스크 (10 or 100ms)
+	4. LDC_Task : LDC 출력 테스크 (100ms)
+	5. Mode_Task : 스위치 확인 및 모드 결정 테스크 (100ms)
+}
+
+
+
 1. 통신 유무선 선택 로직
 
 2. 수신 송신 데이터 처리 로직
