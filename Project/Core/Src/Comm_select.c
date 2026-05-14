@@ -42,7 +42,6 @@ uint8_t switchLevel;
 	현재 main.c 에서 이 함수를 불러올 필요 있음
 ****************************************************************/
 void CommSelect_100ms(void){
-	while(1){
 #if(ProjModeState)
 		//로봇팔모드
 		Robot_CommCheck();
@@ -50,7 +49,6 @@ void CommSelect_100ms(void){
 		//리모콘모드
 		Remote_CommCheck();
 #endif
-	}
 }
 
 /****************************************************************

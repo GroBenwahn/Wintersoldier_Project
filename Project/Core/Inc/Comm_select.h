@@ -7,7 +7,7 @@
 
 #include "config.h"
 
-void CommSelect(void);
+void CommSelect_100ms(void);
 void Remote_CommCheck(void);
 void Robot_CommCheck(void);
 

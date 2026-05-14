@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "Comm_select.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -881,7 +882,8 @@ void StartModeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  CommSelect_100ms();
+	  osDelay(100);
   }
   /* USER CODE END StartModeTask */
 }

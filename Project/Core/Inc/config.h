@@ -6,8 +6,8 @@
  */
 
 // 로봇팔 혹은 리모콘 모드 설정
-#define PROJ_MODE_ROBOT_ARM	1
-#define PROJ_MODE_REMOTE	0
+#define PROJ_MODE_ROBOT_ARM	1	//로봇팔
+#define PROJ_MODE_REMOTE	0	//리모콘
 
 //모드 선택
 #define ProjModeState	PROJ_MODE_ROBOT_ARM
@@ -36,15 +36,15 @@ typedef struct {
     uint8_t  checksum;          // 오류 검출
 } RemoteData;
 
-/*
 
-로봇팔에서 리모콘으로 보내는 정보(필요할까?)
+
+
 
 typedef struct {
     uint16_t motorAngle[6];     // 서보 6개 각도
 } MotorData;
 
-*/
+
 
 
 // 시스템 상태
@@ -65,6 +65,10 @@ typedef struct {
 
 extern CommMode currentCommMode;
 extern SysState currentSysState;
+extern osMessageQueueId_t CAN_QueueHandle;
+extern osMessageQueueId_t BT_QueueHandle;
+extern FDCAN_HandleTypeDef hfdcan1;
+extern UART_HandleTypeDef huart1;
 
 #ifndef INC_CONFIG_H_
 #define INC_CONFIG_H_
