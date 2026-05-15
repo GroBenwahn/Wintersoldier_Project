@@ -78,7 +78,7 @@ uint8_t CAN_IsConnected(void) {
     return 0;
 }
 
-#if (!ProjModeState)
+#if (!ProjModeState) // 리모콘 전용
 
 /****************************************************************
     Function: CAN_CalcChecksum
