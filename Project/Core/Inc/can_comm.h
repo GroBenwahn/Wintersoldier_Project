@@ -11,34 +11,105 @@
 #include "main.h"
 #include "config.h"
 
+/****************************************************************
+    CAN ID 정의
+****************************************************************/
+#define CAN_ID_REMOTE_SENSOR    0x100  // 리모콘 센서 데이터_1  10ms 마다 송신
+#define CAN_ID_REMOTE_SENSOR    0x101  // 리모콘 센서 데이터_1  10ms 마다 송신
+#define CAN_ID_REMOTE_STATUS    0x102  // 리모콘 시스템 상태  100ms 마다 송신
+#define CAN_ID_ROBOT_MOTOR      0x200  // 로봇팔 모터 데이터  10ms 마다 송신
+#define CAN_ID_ROBOT_STATUS     0x201  // 로봇팔 시스템 상태  100ms 마다 송신
 
+#define CAN_TIMEOUT_MS          300
 
-#define CAN_TIMEOUT_MS  300
-//CAN 메시지 ID 정의
-#define CAN_ID_REMOTE_DATA	0x100	//리모콘 --> 로봇팔
-#define CAN_ID_ROBOT_STATUS	0x200	//로봇팔 --> 리모콘
+typedef struct
+{
+    union
+    {
+        uint8_t BYTE_FIELD[8];
+        struct __attribute__((packed))
+        {
+        	uint16_t BendingSensor_0 : 16;
+        	uint16_t BendingSensor_1 : 16;
+        	uint16_t GyroPitch : 8;
+        	uint16_t GyroRoll : 8;
+        }BIT_FIELD;
+    };
+} _REMOTE_SENSOR;
 
+typedef struct
+{
+    union
+    {
+        uint8_t BYTE_FIELD[8];
+        struct __attribute__((packed))
+        {
+        	uint8_t RemoteCommStatus : 8;
+        	uint8_t RemoteSysVolt : 8;
+        	uint8_t RemoteSensorStatus : 8; // 밴딩센서, 자이로센서 정보로 나눌 필요가 있을수도?
+        	uint8_t RemoteChecksum : 8;
+        }BIT_FIELD;
+    };
+} _REMOTE_STATUS;
 
+typedef struct
+{
+    union
+    {
+        uint8_t BYTE_FIELD[8];
+        struct __attribute__((packed))
+        {
+        	uint16_t MotorAngle_0 : 16;
+        	uint16_t MotorAngle_1 : 16;
+        	uint16_t MotorAngle_2 : 16;
+        	uint16_t MotorAngle_3 : 16;
+        }BIT_FIELD;
+    };
+} _ROBOT_MOTOR_1;
 
-//CAN 수신 데이터 구조체
-typedef struct {
-    uint32_t id;
-    uint8_t  data[8];
-    uint8_t  dlc;
-} CAN_RxRaw_t;
+typedef struct
+{
+    union
+    {
+        uint8_t BYTE_FIELD[8];
+        struct __attribute__((packed))
+        {
+        	uint16_t MotorAngle_4 : 16;
+        	uint16_t MotorAngle_5 : 16;
+        }BIT_FIELD;
+    };
+} _ROBOT_MOTOR_2;
 
-extern CAN_RxData_t canRxData;
-extern uint8_t canConnected;
+typedef struct
+{
+    union
+    {
+        uint8_t BYTE_FIELD[8];
+        struct __attribute__((packed))
+        {
+        	uint8_t MotorStatus : 8;
+        	uint8_t RobotCommStatus : 8;
+        	uint8_t RobotSysVolt : 8;
+        	uint8_t LcdStatus : 8;
+        }BIT_FIELD;
+    };
+} _ROBOT_STATUS;
 
+typedef struct
+{
+	_REMOTE_SENSOR	REMOTE_SENSOR;
+	_REMOTE_STATUS	REMOTE_STATUS;
+}REMOTE_CAN_MESSAGE;
 
-uint8_t CAN_IsConnected(void);
-void CAN_Start(void);
+typedef struct
+{
+	_ROBOT_MOTOR_1	ROBOT_SENSOR_1;
+	_ROBOT_MOTOR_2	ROBOT_SENSOR_2;
+	_ROBOT_STATUS	ROBOT_STATUS;
+}ROBOT_CAN_MESSAGE;
 
-#if(ProjModeState == PROJ_MODE_REMOTE)
-HAL_StatusTypeDef CAN_Transmit(RemoteData *txData);
-uint8_t           CAN_CalcChecksum(RemoteData *data);
-#else
-uint8_t CAN_ParseRxData(CAN_RxRaw_t *rxRaw, RemoteData *payload);
-#endif
+extern REMOTE_CAN_MESSAGE	RemoteCanMsg;
+extern ROBOT_CAN_MESSAGE	RobotCanMsg;
+
 
 #endif /* INC_CAN_COMM_H_ */
