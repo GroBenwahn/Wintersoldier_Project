@@ -782,11 +782,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Relay_Output_GPIO_Port, Relay_Output_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : GPIO_Input_Switch_Pin */
   GPIO_InitStruct.Pin = GPIO_Input_Switch_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIO_Input_Switch_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Relay_Output_Pin */
+  GPIO_InitStruct.Pin = Relay_Output_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Relay_Output_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -828,7 +838,8 @@ void StartCommTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  CommSelect_100ms();
+	  osDelay(100);
   }
   /* USER CODE END StartCommTask */
 }
@@ -936,8 +947,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * File Name          :
-  * Description        :
+  * @file           : main.c
+  * @brief          : Main program body
   ******************************************************************************
   * @attention
   *
