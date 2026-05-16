@@ -838,7 +838,7 @@ void StartCommTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  CommSelect_100ms();
+
 	  osDelay(100);
   }
   /* USER CODE END StartCommTask */

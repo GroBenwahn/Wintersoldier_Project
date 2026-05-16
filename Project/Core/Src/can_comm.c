@@ -23,23 +23,31 @@ uint8_t CAN_IsConnected(void);
 /****************************************************************
 	Data Define
 ****************************************************************/
-CAN_RxRaw_t canRxRaw   = {0};
-uint8_t     canConnected = 0;
-static uint32_t lastCanRxTick = 0;
+FDCAN_TxHeaderTypeDef CAN_TxHeader;
+uint8_t CAN_TxData[8];
+
 /****************************************************************
     Function: CAN_Start
-    Description: CAN 시작 (송수신 공통)
+    Description: CAN 필터 설정 및 시작
 ****************************************************************/
 void CAN_Start(void) {
     FDCAN_FilterTypeDef filterConfig;
+
+    // 필터 0: 리모콘 데이터 범위 (0x100~0x1FF)
     filterConfig.IdType       = FDCAN_STANDARD_ID;
     filterConfig.FilterIndex  = 0;
-    filterConfig.FilterType   = FDCAN_FILTER_MASK;
+    filterConfig.FilterType   = FDCAN_FILTER_RANGE;
     filterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-    filterConfig.FilterID1    = 0x000;
-    filterConfig.FilterID2    = 0x000;
-
+    filterConfig.FilterID1    = 0x100;
+    filterConfig.FilterID2    = 0x1FF;
     HAL_FDCAN_ConfigFilter(&hfdcan1, &filterConfig);
+
+    // 필터 1: 로봇팔 데이터 범위 (0x200~0x2FF)
+    filterConfig.FilterIndex  = 1;
+    filterConfig.FilterID1    = 0x200;
+    filterConfig.FilterID2    = 0x2FF;
+    HAL_FDCAN_ConfigFilter(&hfdcan1, &filterConfig);
+
     HAL_FDCAN_ActivateNotification(&hfdcan1,
         FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
     HAL_FDCAN_Start(&hfdcan1);
@@ -76,20 +84,4 @@ uint8_t CAN_IsConnected(void) {
     }
     canConnected = 0;
     return 0;
-}
-
-#if (!ProjModeState) // 리모콘 전용
-
-/****************************************************************
-    Function: CAN_CalcChecksum
-    Description: 체크섬 계산
-****************************************************************/
-uint8_t CAN_CalcChecksum(CAN_TxRemotePayload_t *data) {
-    uint8_t sum = 0;
-    uint8_t *ptr = (uint8_t*)data;
-    // checksum 필드 제외하고 계산
-    for(int i = 0; i < sizeof(CAN_TxRemotePayload_t) - 1; i++) {
-        sum += ptr[i];
-    }
-    return sum;
 }
