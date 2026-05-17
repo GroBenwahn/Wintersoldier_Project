@@ -56,7 +56,7 @@ void CommSelect_100ms(void){
 	Description: 리모콘 현재 통신모드 체크
 ****************************************************************/
 void Remote_CommCheck(void){
-	uint8_t switchLevel = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_7);
+	uint8_t switchLevel = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
 
 	if(switchLevel == 1){
 		// 스위치가 블루투스 쪽일때

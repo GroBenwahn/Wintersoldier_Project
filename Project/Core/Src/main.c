@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "Comm_select.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -129,6 +128,11 @@ osSemaphoreId_t LCD_SemHandle;
 const osSemaphoreAttr_t LCD_Sem_attributes = {
   .name = "LCD_Sem"
 };
+/* Definitions for Gyro_Sem */
+osSemaphoreId_t Gyro_SemHandle;
+const osSemaphoreAttr_t Gyro_Sem_attributes = {
+  .name = "Gyro_Sem"
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -216,6 +220,9 @@ int main(void)
 
   /* creation of LCD_Sem */
   LCD_SemHandle = osSemaphoreNew(1, 1, &LCD_Sem_attributes);
+
+  /* creation of Gyro_Sem */
+  Gyro_SemHandle = osSemaphoreNew(1, 1, &Gyro_Sem_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -783,7 +790,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Relay_Output_GPIO_Port, Relay_Output_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIO_Relay_Output_GPIO_Port, GPIO_Relay_Output_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : Gyro_Sensor_INT_Pin */
+  GPIO_InitStruct.Pin = Gyro_Sensor_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(Gyro_Sensor_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GPIO_Input_Switch_Pin */
   GPIO_InitStruct.Pin = GPIO_Input_Switch_Pin;
@@ -791,12 +804,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIO_Input_Switch_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : Relay_Output_Pin */
-  GPIO_InitStruct.Pin = Relay_Output_Pin;
+  /*Configure GPIO pin : GPIO_Relay_Output_Pin */
+  GPIO_InitStruct.Pin = GPIO_Relay_Output_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(Relay_Output_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIO_Relay_Output_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

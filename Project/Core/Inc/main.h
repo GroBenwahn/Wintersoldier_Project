@@ -76,8 +76,9 @@ void Error_Handler(void);
 #define TIM2_Motor_CH1_GPIO_Port GPIOA
 #define TIM3_Motor_CH1_Pin GPIO_PIN_6
 #define TIM3_Motor_CH1_GPIO_Port GPIOA
-#define GPIO_Input_Switch_Pin GPIO_PIN_7
-#define GPIO_Input_Switch_GPIO_Port GPIOA
+#define Gyro_Sensor_INT_Pin GPIO_PIN_7
+#define Gyro_Sensor_INT_GPIO_Port GPIOA
+#define Gyro_Sensor_INT_EXTI_IRQn EXTI9_5_IRQn
 #define TIM3_Motor_CH3_Pin GPIO_PIN_0
 #define TIM3_Motor_CH3_GPIO_Port GPIOB
 #define TIM1_Motor_CH1_Pin GPIO_PIN_8
@@ -98,8 +99,10 @@ void Error_Handler(void);
 #define Gyro_Sensro_LDC_SCL_GPIO_Port GPIOA
 #define T_SWO_Pin GPIO_PIN_3
 #define T_SWO_GPIO_Port GPIOB
-#define Relay_Output_Pin GPIO_PIN_5
-#define Relay_Output_GPIO_Port GPIOB
+#define GPIO_Input_Switch_Pin GPIO_PIN_4
+#define GPIO_Input_Switch_GPIO_Port GPIOB
+#define GPIO_Relay_Output_Pin GPIO_PIN_5
+#define GPIO_Relay_Output_GPIO_Port GPIOB
 #define Bluetooth_TX_Pin GPIO_PIN_6
 #define Bluetooth_TX_GPIO_Port GPIOB
 #define Gyro_Sensor_LDC_SDA_Pin GPIO_PIN_7
