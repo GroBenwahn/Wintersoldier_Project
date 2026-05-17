@@ -1,0 +1,180 @@
+/*
+ * readSensor.c
+ *
+ *  Created on: 2026. 5. 17.
+ *      Author: MinJae
+ */
+
+
+/****************************************************************
+    Include Files
+****************************************************************/
+#include "readSensor.h"
+#include "can_comm.h"
+#include "bt_comm.h"
+
+/****************************************************************
+	Function Declaration
+****************************************************************/
+void ReadSensor_Init(void);
+void ReadSensor_Update_10ms(void);
+void ReadSensor_Update_100ms(void);
+void Read_BendingSensor(void);
+void Read_GyroSensor(void);
+void Read_SwitchRelay(void);
+void Read_MotorStatus(void);
+void Read_LCDStatus(void);
+
+/****************************************************************
+    External Variables
+    (adc, i2c, tim 핸들은 main.h/main.c에서 extern으로 선언됨)
+****************************************************************/
+uint16_t adcBuffer[2] = {0};
+extern ADC_HandleTypeDef  hadc1;
+extern I2C_HandleTypeDef  hi2c1;
+extern TIM_HandleTypeDef  htim1;
+extern TIM_HandleTypeDef  htim2;
+extern TIM_HandleTypeDef  htim3;
+
+/****************************************************************
+    로컬 상태 변수 정의
+    — can_comm.c Pack 함수가 extern으로 읽어서 CAN 송신에 사용
+****************************************************************/
+#if (!ProjModeState)             // 리모콘 전용
+uint8_t localSensorStatus = 0;   // bit0=bending0, bit1=bending1, bit2=gyro 이상
+#endif
+
+#if (ProjModeState)              // 로봇팔 전용
+uint8_t localLcdStatus      = 0;
+uint8_t localMotorStatus[6] = {0};
+#endif
+
+uint8_t localSwitchStatus = 0;
+uint8_t localRelayStatus  = 0;
+
+/****************************************************************
+    Function: ReadSensor_Init
+    Description: 센서 초기화
+****************************************************************/
+void ReadSensor_Init(void) {
+#if (!ProjModeState)
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, 2);
+    // MPU6050_Init(&hi2c1);  // 추후 gyro 라이브러리 연동
+#endif
+}
+
+/****************************************************************
+    Function: ReadSensor_Update_10ms
+    Description: 빠른 주기 (Timer10ms) — 핵심 센서 읽기
+****************************************************************/
+void ReadSensor_Update_10ms(void) {
+#if (!ProjModeState)
+    Read_BendingSensor();
+    Read_GyroSensor();
+#endif
+
+#if (ProjModeState)
+    Read_MotorStatus();
+#endif
+}
+
+/****************************************************************
+    Function: ReadSensor_Update_100ms
+    Description: 느린 주기 (Timer100ms) — 상태 확인
+****************************************************************/
+void ReadSensor_Update_100ms(void) {
+#if (!ProjModeState)
+    Read_SwitchRelay();
+#endif
+
+#if (ProjModeState)
+    Read_LCDStatus();
+#endif
+}
+
+/* ============================================================
+   리모콘 전용 함수
+   ============================================================ */
+#if (!ProjModeState)
+
+/****************************************************************
+    Function: Read_BendingSensor
+    Description: ADC DMA 버퍼값 → remoteSensorTx 업데이트
+                 이상값 감지 시 localSensorStatus bit 세팅
+****************************************************************/
+void Read_BendingSensor(void) {
+    remoteSensorTx.bendingSensor[0] = adcBuffer[0];
+    remoteSensorTx.bendingSensor[1] = adcBuffer[1];
+
+    // 센서 이상 감지 (범위: 0~4095, 0 또는 최대값이면 단선/단락 의심)
+    if(adcBuffer[0] == 0 || adcBuffer[0] == 4095) {
+        localSensorStatus |= (1 << 0);
+    } else {
+        localSensorStatus &= ~(1 << 0);
+    }
+
+    if(adcBuffer[1] == 0 || adcBuffer[1] == 4095) {
+        localSensorStatus |= (1 << 1);
+    } else {
+        localSensorStatus &= ~(1 << 1);
+    }
+}
+
+/****************************************************************
+    Function: Read_GyroSensor
+    Description: MPU6050 I2C → remoteSensorTx 업데이트
+****************************************************************/
+void Read_GyroSensor(void) {
+    // MPU6050_GetAngle(&remoteSensorTx.gyro_pitch, &remoteSensorTx.gyro_roll);
+    // 이상 감지
+    // localSensorStatus |= (1 << 2);  // gyro 오류 시
+}
+#endif  // !ProjModeState
+
+
+/****************************************************************
+    Function: Read_SwitchRelay
+    Description: 스위치/릴레이 GPIO 상태 → 로컬 변수 업데이트
+                 Pack_Remote_CAN_Message(0x101)이 읽어서 송신
+****************************************************************/
+void Read_SwitchRelay(void) {
+    localSwitchStatus =
+        (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_RESET) ? 1 : 0;
+
+    localRelayStatus =
+        (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET) ? 1 : 0;
+}
+
+
+
+/* ============================================================
+   로봇팔 전용 함수
+   ============================================================ */
+#if (ProjModeState)
+
+/****************************************************************
+    Function: Read_MotorStatus
+    Description: 타이머 CCR 현재값으로 PWM 출력 여부 → localMotorStatus[]
+                 Pack_Robot_CAN_Message(0x202)이 읽어서 송신
+****************************************************************/
+void Read_MotorStatus(void) {
+    localMotorStatus[0] = (uint8_t)(htim1.Instance->CCR1 > 0);
+    localMotorStatus[1] = (uint8_t)(htim1.Instance->CCR2 > 0);
+    localMotorStatus[2] = (uint8_t)(htim2.Instance->CCR1 > 0);
+    localMotorStatus[3] = (uint8_t)(htim3.Instance->CCR1 > 0);
+    localMotorStatus[4] = (uint8_t)(htim3.Instance->CCR2 > 0);
+    localMotorStatus[5] = (uint8_t)(htim3.Instance->CCR3 > 0);
+}
+
+/****************************************************************
+    Function: Read_LCDStatus
+    Description: I2C ACK 확인 → localLcdStatus
+****************************************************************/
+void Read_LCDStatus(void) {
+    HAL_StatusTypeDef ret =
+        HAL_I2C_IsDeviceReady(&hi2c1, 0x27 << 1, 1, 10);
+
+    localLcdStatus = (ret == HAL_OK) ? 1 : 0;
+}
+
+#endif  // ProjModeState

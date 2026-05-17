@@ -305,19 +305,19 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
     PA15     ------> I2C1_SCL
     PB7     ------> I2C1_SDA
     */
-    GPIO_InitStruct.Pin = Gyro_Sensro_LDC_SCL_Pin;
+    GPIO_InitStruct.Pin = Gyro_Sensro_LCD_SCL_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-    HAL_GPIO_Init(Gyro_Sensro_LDC_SCL_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(Gyro_Sensro_LCD_SCL_GPIO_Port, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = Gyro_Sensor_LDC_SDA_Pin;
+    GPIO_InitStruct.Pin = Gyro_Sensor_LCD_SDA_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-    HAL_GPIO_Init(Gyro_Sensor_LDC_SDA_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(Gyro_Sensor_LCD_SDA_GPIO_Port, &GPIO_InitStruct);
 
     /* Peripheral clock enable */
     __HAL_RCC_I2C1_CLK_ENABLE();
@@ -373,9 +373,9 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
     PA15     ------> I2C1_SCL
     PB7     ------> I2C1_SDA
     */
-    HAL_GPIO_DeInit(Gyro_Sensro_LDC_SCL_GPIO_Port, Gyro_Sensro_LDC_SCL_Pin);
+    HAL_GPIO_DeInit(Gyro_Sensro_LCD_SCL_GPIO_Port, Gyro_Sensro_LCD_SCL_Pin);
 
-    HAL_GPIO_DeInit(Gyro_Sensor_LDC_SDA_GPIO_Port, Gyro_Sensor_LDC_SDA_Pin);
+    HAL_GPIO_DeInit(Gyro_Sensor_LCD_SDA_GPIO_Port, Gyro_Sensor_LCD_SDA_Pin);
 
     /* I2C1 DMA DeInit */
     HAL_DMA_DeInit(hi2c->hdmarx);

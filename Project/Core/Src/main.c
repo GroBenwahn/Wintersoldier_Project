@@ -22,7 +22,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "can_comm.h"
+#include "Comm_select.h"
+#include "readSensor.h"
+#include "bt_comm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -204,7 +207,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
+  CAN_Start();        // CAN 필터 설정 + HAL_FDCAN_Start
+  ReadSensor_Init();  // ADC DMA 시작, MPU6050 초기화
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -239,7 +243,9 @@ int main(void)
   Timer100msHandle = osTimerNew(Timer100ms_Callback, osTimerPeriodic, NULL, &Timer100ms_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
+  osTimerStart(TimerOnceHandle,  1);    // 1ms one-shot (초기화 완료 신호용)
+  osTimerStart(Timer10msHandle,  10);   // 10ms 주기 → CAN_Sem → Comm_Task
+  osTimerStart(Timer100msHandle, 100);  // 100ms 주기 → LCD_Sem → LCD_Task
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
@@ -461,7 +467,7 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.DataSyncJumpWidth = 1;
   hfdcan1.Init.DataTimeSeg1 = 1;
   hfdcan1.Init.DataTimeSeg2 = 1;
-  hfdcan1.Init.StdFiltersNbr = 0;
+  hfdcan1.Init.StdFiltersNbr = 2;
   hfdcan1.Init.ExtFiltersNbr = 0;
   hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
@@ -852,11 +858,57 @@ void StartDefaultTask(void *argument)
 void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN StartCommTask */
-  /* Infinite loop */
+  uint8_t cnt100ms = 0;
+
   for(;;)
   {
+    osSemaphoreAcquire(CAN_SemHandle, osWaitForever);  // Timer10ms_Callback이 10ms마다 release
 
-	  osDelay(100);
+    /* ── 10ms: 센서 읽기 (통신 모드 무관, 항상 실행) ──────── */
+    ReadSensor_Update_10ms();
+
+    /* ── 10ms: 통신 모드에 따라 송신 ─────────────────────── */
+    /* 리모콘은 localSwitchStatus로 즉시 결정 → CommSelect 부트스트랩 데드락 방지 */
+    /* 로봇팔은 CommSelect가 CAN 수신 후 currentCommMode를 확정하면 그때 송신 시작 */
+#if (!ProjModeState)
+    if(localSwitchStatus == 0) {   // LOW = CAN 모드
+      Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+      Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+    } else {                        // HIGH = BT 모드
+      // BT 10ms 송신 (bt_comm.c 구현 후 추가)
+    }
+#else
+    if(currentCommMode == COMM_MODE_CAN) {
+      Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
+      Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
+      Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
+      Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
+    } else if(currentCommMode == COMM_MODE_BT) {
+      // BT 10ms 송신 (bt_comm.c 구현 후 추가)
+    }
+#endif
+
+    /* ── 100ms: 상태 송신 (10틱마다 1회) ────────────────── */
+    /* ReadSensor_Update_100ms()는 Mode_Task에서 호출 — 여기선 TX만 */
+    if(++cnt100ms >= 10) {
+      cnt100ms = 0;
+
+#if (!ProjModeState)
+      if(localSwitchStatus == 0) {   // CAN 모드
+        Pack_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
+        Tx_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
+      } else {                        // BT 모드
+        // BT 100ms 송신 (bt_comm.c 구현 후 추가)
+      }
+#else
+      if(currentCommMode == COMM_MODE_CAN) {
+        Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+        Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+      } else if(currentCommMode == COMM_MODE_BT) {
+        // BT 100ms 송신 (bt_comm.c 구현 후 추가)
+      }
+#endif
+    }
   }
   /* USER CODE END StartCommTask */
 }
@@ -889,10 +941,10 @@ void StartServoTask(void *argument)
 void StartLCDTask04(void *argument)
 {
   /* USER CODE BEGIN StartLCDTask04 */
-  /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osSemaphoreAcquire(LCD_SemHandle, osWaitForever);  // Timer100ms_Callback이 100ms마다 release
+    // LCD 표시 (추후 구현)
   }
   /* USER CODE END StartLCDTask04 */
 }
@@ -910,8 +962,9 @@ void StartModeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  CommSelect_100ms();
-	  osDelay(100);
+    ReadSensor_Update_100ms();  // 스위치/릴레이/LCD 상태 읽기 → localSwitchStatus 등 갱신
+    CommSelect_100ms();         // localSwitchStatus 기반으로 currentCommMode 확정
+    osDelay(100);
   }
   /* USER CODE END StartModeTask */
 }
@@ -928,7 +981,7 @@ void TimerOnce_Callback(void *argument)
 void Timer10ms_Callback(void *argument)
 {
   /* USER CODE BEGIN Timer10ms_Callback */
-
+  osSemaphoreRelease(CAN_SemHandle);
   /* USER CODE END Timer10ms_Callback */
 }
 
@@ -936,7 +989,7 @@ void Timer10ms_Callback(void *argument)
 void Timer100ms_Callback(void *argument)
 {
   /* USER CODE BEGIN Timer100ms_Callback */
-
+  osSemaphoreRelease(LCD_SemHandle);
   /* USER CODE END Timer100ms_Callback */
 }
 

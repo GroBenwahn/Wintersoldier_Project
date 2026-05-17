@@ -16,8 +16,8 @@
 ****************************************************************/
 #define CAN_ID_REMOTE_SENSOR    0x100  // 리모콘 센서 데이터_1  10ms 마다 송신
 #define CAN_ID_REMOTE_STATUS    0x101  // 리모콘 시스템 상태  100ms 마다 송신
-#define CAN_ID_ROBOT_MOTOR_1      0x200  // 로봇팔 모터 데이터  10ms 마다 송신
-#define CAN_ID_ROBOT_MOTOR_2      0x201  // 로봇팔 모터 데이터  10ms 마다 송신
+#define CAN_ID_ROBOT_MOTOR_1    0x200  // 로봇팔 모터 데이터  10ms 마다 송신
+#define CAN_ID_ROBOT_MOTOR_2    0x201  // 로봇팔 모터 데이터  10ms 마다 송신
 #define CAN_ID_ROBOT_STATUS     0x202  // 로봇팔 시스템 상태  100ms 마다 송신
 
 #define CAN_TIMEOUT_MS          300
@@ -31,8 +31,8 @@ typedef struct
         {
         	uint16_t BendingSensor_0 : 16;
         	uint16_t BendingSensor_1 : 16;
-        	uint16_t GyroPitch : 8;
-        	uint16_t GyroRoll : 8;
+        	int16_t  GyroPitch       : 16;
+        	int16_t  GyroRoll        : 16;
         }BIT_FIELD;
     };
 } _REMOTE_SENSOR;
@@ -44,10 +44,10 @@ typedef struct
         uint8_t BYTE_FIELD[8];
         struct __attribute__((packed))
         {
-        	uint8_t RemoteCommStatus : 8;
-        	uint8_t RemoteSysVolt : 8;
-        	uint8_t RemoteSensorStatus : 8; // 밴딩센서, 자이로센서 정보로 나눌 필요가 있을수도?
-        	uint8_t RemoteChecksum : 8;
+        	uint8_t RemoteCommStatus   : 8;
+        	uint8_t _reserved0         : 8;   // 전압 측정 핀 없음
+        	uint8_t RemoteSensorStatus : 8;   // bit0=bending0, bit1=bending1, bit2=gyro, bit3=switch, bit4=relay
+        	uint8_t RemoteChecksum     : 8;
         }BIT_FIELD;
     };
 } _REMOTE_STATUS;
@@ -87,10 +87,10 @@ typedef struct
         uint8_t BYTE_FIELD[8];
         struct __attribute__((packed))
         {
-        	uint8_t MotorStatus : 8;
+        	uint8_t MotorStatus     : 8;   // bit0~5 = 모터 0~5 이상 여부
         	uint8_t RobotCommStatus : 8;
-        	uint8_t RobotSysVolt : 8;
-        	uint8_t LcdStatus : 8;
+        	uint8_t _reserved0      : 8;   // 전압 측정 핀 없음
+        	uint8_t LcdStatus       : 8;
         }BIT_FIELD;
     };
 } _ROBOT_STATUS;
@@ -110,6 +110,28 @@ typedef struct
 
 extern REMOTE_CAN_MESSAGE	RemoteCanMsg;
 extern ROBOT_CAN_MESSAGE	RobotCanMsg;
+
+/****************************************************************
+    함수 선언
+****************************************************************/
+// 초기화 / 유틸
+void             CAN_Start(void);
+uint8_t          CAN_IsConnected(void);
+uint8_t          CAN_CalcChecksum(uint8_t *data, uint8_t length);
+
+// 수신 처리 (인터럽트 콜백 → Fill → Update)
+void             Fill_Remote_CAN_Message(uint32_t canID, uint8_t rxData[8]);
+void             Fill_Robot_CAN_Message(uint32_t canID, uint8_t rxData[8]);
+void             Update_RemoteSensorRx(void);           // 0x100 수신 → remoteSensorRx
+void             Update_RobotMotorRx(void);             // 0x200/0x201 수신 → robotMotorRx
+void             Update_SystemStatus_FromRemote(void);  // 0x101 수신 → sysStatus
+void             Update_SystemStatus_FromRobot(void);   // 0x202 수신 → sysStatus
+
+// 송신 처리 (Pack → Tx)
+void             Pack_Remote_CAN_Message(uint32_t canID);  // remoteSensorTx → RemoteCanMsg
+void             Pack_Robot_CAN_Message(uint32_t canID);   // robotMotorTx   → RobotCanMsg
+HAL_StatusTypeDef Tx_Remote_CAN_Message(uint32_t canID);
+HAL_StatusTypeDef Tx_Robot_CAN_Message(uint32_t canID);
 
 
 #endif /* INC_CAN_COMM_H_ */

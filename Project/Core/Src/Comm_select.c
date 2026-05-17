@@ -21,6 +21,15 @@
 	Include Files
 ****************************************************************/
 #include "config.h"
+#include "can_comm.h"
+#include "bt_comm.h"
+#include "readSensor.h"
+
+/****************************************************************
+	Data Declaration
+****************************************************************/
+
+CommMode currentCommMode = COMM_MODE_IDLE;
 
 /****************************************************************
 	Function Declaration
@@ -28,12 +37,6 @@
 void CommSelect_100ms(void);
 void Remote_CommCheck(void);
 void Robot_CommCheck(void);
-
-/****************************************************************
-	Data Define
-****************************************************************/
-
-uint8_t switchLevel;
 
 /****************************************************************
 	Function: CommSelect(void);
@@ -56,9 +59,9 @@ void CommSelect_100ms(void){
 	Description: 리모콘 현재 통신모드 체크
 ****************************************************************/
 void Remote_CommCheck(void){
-	uint8_t switchLevel = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
+	// localSwitchStatus: readSensor.h extern — Read_SwitchRelay()가 채운 전역값 사용
 
-	if(switchLevel == 1){
+	if(localSwitchStatus == 1){
 		// 스위치가 블루투스 쪽일때
 		if(BT_IsPaired())
 		{

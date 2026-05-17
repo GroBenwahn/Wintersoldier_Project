@@ -5,15 +5,11 @@
  *      Author: MinJae
  */
 
-#include "config.h"
-
-void CommSelect_100ms(void);
-void Remote_CommCheck(void);
-void Robot_CommCheck(void);
-
 #ifndef INC_COMM_SELECT_H_
 #define INC_COMM_SELECT_H_
 
+#include "config.h"
 
+void CommSelect_100ms(void);
 
 #endif /* INC_COMM_SELECT_H_ */
