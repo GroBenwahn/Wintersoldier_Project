@@ -15,10 +15,10 @@
     CAN ID 정의
 ****************************************************************/
 #define CAN_ID_REMOTE_SENSOR    0x100  // 리모콘 센서 데이터_1  10ms 마다 송신
-#define CAN_ID_REMOTE_SENSOR    0x101  // 리모콘 센서 데이터_1  10ms 마다 송신
-#define CAN_ID_REMOTE_STATUS    0x102  // 리모콘 시스템 상태  100ms 마다 송신
-#define CAN_ID_ROBOT_MOTOR      0x200  // 로봇팔 모터 데이터  10ms 마다 송신
-#define CAN_ID_ROBOT_STATUS     0x201  // 로봇팔 시스템 상태  100ms 마다 송신
+#define CAN_ID_REMOTE_STATUS    0x101  // 리모콘 시스템 상태  100ms 마다 송신
+#define CAN_ID_ROBOT_MOTOR_1      0x200  // 로봇팔 모터 데이터  10ms 마다 송신
+#define CAN_ID_ROBOT_MOTOR_2      0x201  // 로봇팔 모터 데이터  10ms 마다 송신
+#define CAN_ID_ROBOT_STATUS     0x202  // 로봇팔 시스템 상태  100ms 마다 송신
 
 #define CAN_TIMEOUT_MS          300
 
@@ -103,8 +103,8 @@ typedef struct
 
 typedef struct
 {
-	_ROBOT_MOTOR_1	ROBOT_SENSOR_1;
-	_ROBOT_MOTOR_2	ROBOT_SENSOR_2;
+	_ROBOT_MOTOR_1	ROBOT_MOTOR_1;
+	_ROBOT_MOTOR_2	ROBOT_MOTOR_2;
 	_ROBOT_STATUS	ROBOT_STATUS;
 }ROBOT_CAN_MESSAGE;
 
