@@ -12,6 +12,7 @@
 #include "readSensor.h"
 #include "can_comm.h"
 #include "bt_comm.h"
+#include "mpu6050.h"
 
 /****************************************************************
 	Function Declaration
@@ -59,7 +60,7 @@ uint8_t localRelayStatus  = 0;
 void ReadSensor_Init(void) {
 #if (!ProjModeState)
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, 2);
-    // MPU6050_Init(&hi2c1);  // 추후 gyro 라이브러리 연동
+    MPU6050_Init(&hi2c1);
 #endif
 }
 
@@ -125,9 +126,14 @@ void Read_BendingSensor(void) {
     Description: MPU6050 I2C → remoteSensorTx 업데이트
 ****************************************************************/
 void Read_GyroSensor(void) {
-    // MPU6050_GetAngle(&remoteSensorTx.gyro_pitch, &remoteSensorTx.gyro_roll);
-    // 이상 감지
-    // localSensorStatus |= (1 << 2);  // gyro 오류 시
+    HAL_StatusTypeDef ret = MPU6050_GetAngle(&hi2c1,
+                                             &remoteSensorTx.gyro_pitch,
+                                             &remoteSensorTx.gyro_roll);
+    if(ret != HAL_OK) {
+        localSensorStatus |=  (1 << 2);   // gyro 오류
+    } else {
+        localSensorStatus &= ~(1 << 2);   // 정상
+    }
 }
 #endif  // !ProjModeState
 
