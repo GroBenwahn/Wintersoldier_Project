@@ -878,11 +878,9 @@ void StartCommTask(void *argument)
 #if (!ProjModeState)
         /* 리모콘 보드 */
         if (currentCommMode == COMM_MODE_CAN) {
-            Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
-            Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
-        } else if (currentCommMode == COMM_MODE_BT) {
-            BT_Pack_And_Send(BT_ID_REMOTE_SENSOR,
-                             g_remote_sensor_payload, 8);
+            Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+            Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+        	}
         }
 
 #else
