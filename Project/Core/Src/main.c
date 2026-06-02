@@ -26,6 +26,7 @@
 #include "Comm_select.h"
 #include "readSensor.h"
 #include "bt_comm.h"
+#include "Comm_Power_Select.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -208,7 +209,8 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   CAN_Start();        // CAN 필터 설정 + HAL_FDCAN_Start
-  ReadSensor_Init();  // ADC DMA 시작, MPU6050 초기화
+  ReadSensor_Init();
+  CommPowerSelect_Init(); // ADC DMA 시작, MPU6050 초기화
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -726,7 +728,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -827,7 +829,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_Input_Switch_Pin)
+        CommPowerSelect_ButtonPressed();
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -857,60 +863,70 @@ void StartDefaultTask(void *argument)
 /* USER CODE END Header_StartCommTask */
 void StartCommTask(void *argument)
 {
-  /* USER CODE BEGIN StartCommTask */
-  uint8_t cnt100ms = 0;
+    /* USER CODE BEGIN StartCommTask */
+    uint8_t cnt100ms = 0;
 
-  for(;;)
-  {
-    osSemaphoreAcquire(CAN_SemHandle, osWaitForever);  // Timer10ms_Callback이 10ms마다 release
+    for(;;)
+    {
+        /* 10ms마다 Timer10ms_Callback이 release */
+        osSemaphoreAcquire(CAN_SemHandle, osWaitForever);
 
-    /* ── 10ms: 센서 읽기 (통신 모드 무관, 항상 실행) ──────── */
-    ReadSensor_Update_10ms();
+        /* ── 10ms: 센서 읽기 (항상 실행) ──────────────────── */
+        ReadSensor_Update_10ms();
 
-    /* ── 10ms: 통신 모드에 따라 송신 ─────────────────────── */
-    /* 리모콘은 localSwitchStatus로 즉시 결정 → CommSelect 부트스트랩 데드락 방지 */
-    /* 로봇팔은 CommSelect가 CAN 수신 후 currentCommMode를 확정하면 그때 송신 시작 */
+        /* ── 10ms: 통신 모드별 송신 ────────────────────────── */
 #if (!ProjModeState)
-    if(localSwitchStatus == 0) {   // LOW = CAN 모드
-      Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
-      Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
-    } else {                        // HIGH = BT 모드
-      // BT 10ms 송신 (bt_comm.c 구현 후 추가)
-    }
+        /* 리모콘 보드 */
+        if (currentCommMode == COMM_MODE_CAN) {
+            Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+            Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+        } else if (currentCommMode == COMM_MODE_BT) {
+            BT_Pack_And_Send(BT_ID_REMOTE_SENSOR,
+                             g_remote_sensor_payload, 8);
+        }
+
 #else
-    if(currentCommMode == COMM_MODE_CAN) {
-      Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
-      Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
-      Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
-      Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
-    } else if(currentCommMode == COMM_MODE_BT) {
-      // BT 10ms 송신 (bt_comm.c 구현 후 추가)
-    }
+        /* 로봇팔 보드 — 수신된 BT 패킷으로 모터 제어 */
+        if (currentCommMode == COMM_MODE_CAN) {
+            Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
+            Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
+            Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
+            Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
+        } else if (currentCommMode == COMM_MODE_BT) {
+            BT_Packet_t pkt;
+            if (BT_Receive_Packet(&pkt)) {
+                if (pkt.id == BT_ID_REMOTE_SENSOR) {
+                    /* 수신된 센서값 → 모터 PWM 변환은 Servo_Task에서 처리 */
+                    /* 여기선 큐에 전달 */
+                    osMessageQueuePut(BT_QueueHandle, &pkt, 0, 0);
+                }
+            }
+        }
 #endif
 
-    /* ── 100ms: 상태 송신 (10틱마다 1회) ────────────────── */
-    /* ReadSensor_Update_100ms()는 Mode_Task에서 호출 — 여기선 TX만 */
-    if(++cnt100ms >= 10) {
-      cnt100ms = 0;
+        /* ── 100ms: 상태 송신 (10틱마다 1회) ──────────────── */
+        if (++cnt100ms >= 10) {
+            cnt100ms = 0;
 
 #if (!ProjModeState)
-      if(localSwitchStatus == 0) {   // CAN 모드
-        Pack_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
-        Tx_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
-      } else {                        // BT 모드
-        // BT 100ms 송신 (bt_comm.c 구현 후 추가)
-      }
+            /* 리모콘 보드 — CAN만 상태 송신, BT는 없음 */
+            if (currentCommMode == COMM_MODE_CAN) {
+                Pack_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
+                Tx_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
+            }
 #else
-      if(currentCommMode == COMM_MODE_CAN) {
-        Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-        Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-      } else if(currentCommMode == COMM_MODE_BT) {
-        // BT 100ms 송신 (bt_comm.c 구현 후 추가)
-      }
+            /* 로봇팔 보드 */
+            if (currentCommMode == COMM_MODE_CAN) {
+                Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+                Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+            } else if (currentCommMode == COMM_MODE_BT) {
+                BT_Pack_And_Send(BT_ID_ROBOT_STATUS,
+                                 g_robot_status_payload, 8);
+            }
 #endif
+        }
     }
-  }
-  /* USER CODE END StartCommTask */
+    /* USER CODE END StartCommTask */
 }
 
 /* USER CODE BEGIN Header_StartServoTask */
@@ -962,9 +978,9 @@ void StartModeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    ReadSensor_Update_100ms();  // 스위치/릴레이/LCD 상태 읽기 → localSwitchStatus 등 갱신
-    CommSelect_100ms();         // localSwitchStatus 기반으로 currentCommMode 확정
-    osDelay(100);
+	  ReadSensor_Update_100ms();   /* 센서/스위치 상태 갱신 */
+	  CommSelect_100ms();          /* currentCommMode 확정 */
+	  osDelay(100);
   }
   /* USER CODE END StartModeTask */
 }
@@ -972,9 +988,9 @@ void StartModeTask(void *argument)
 /* TimerOnce_Callback function */
 void TimerOnce_Callback(void *argument)
 {
-  /* USER CODE BEGIN TimerOnce_Callback */
-
-  /* USER CODE END TimerOnce_Callback */
+    /* USER CODE BEGIN TimerOnce_Callback */
+    CommPowerSelect_DebounceExpired();
+    /* USER CODE END TimerOnce_Callback */
 }
 
 /* Timer10ms_Callback function */
@@ -1036,6 +1052,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 /**
   * @}
   */
+
 
 /**
   * @}
