@@ -1,6 +1,4 @@
 /*
- * bt_comm.c — HC-06 Bluetooth 드라이버 (보드 2개 양방향 통신)
- *
  * 연결 흐름
  *   BT_Init() 호출
  *     → UART RX 인터럽트 시작
@@ -11,14 +9,7 @@
  * 연결 감지
  *   g_last_rx_tick 기준으로 BT_CONN_TIMEOUT_MS 이내 수신 있으면 CONNECTED
  *   타임아웃 시 DISCONNECTED (BT 모드는 유지, 버튼으로만 전환)
- *
- * TX 흐름
- *   BT_Pack_And_Send() → 패킷 빌드 → HAL_UART_Transmit (블로킹)
- *
- * RX 흐름
- *   HAL_UART_Receive_IT (1byte) → HAL_UART_RxCpltCallback
- *     → 상태머신 파서 → 완성 패킷 → g_ready_pkt
- *     → BT_Receive_Packet()으로 꺼냄
+
  */
 
 #include "bt_comm.h"
@@ -26,7 +17,7 @@
 
 /* ── 타이밍 ─────────────────────────────────────────── */
 #define BT_CONN_TIMEOUT_MS   3000   /* 3초 수신 없으면 DISCONNECTED */
-#define BT_TX_TIMEOUT_MS       10   /* HAL_UART_Transmit 블로킹 한도 */
+#define BT_TX_TIMEOUT_MS     5   /* 115200bps 기준 13byte ≈ 1.1ms, 여유 5ms */
 
 /* ── 연결 상태 전역 ─────────────────────────────────── */
 volatile BT_ConnState_t g_bt_conn_state = BT_STATE_DISCONNECTED;
