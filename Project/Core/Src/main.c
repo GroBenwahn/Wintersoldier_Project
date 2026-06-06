@@ -23,7 +23,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "can_comm.h"
-#include "Comm_select.h"
 #include "readSensor.h"
 #include "bt_comm.h"
 #include "Comm_Power_Select.h"
@@ -208,8 +207,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  CAN_Start();        // CAN 필터 설정 + HAL_FDCAN_Start
-  ReadSensor_Init();
+  CAN_Start();
+  ReadSensor_Init();     // CAN 필터 설정 + HAL_FDCAN_Start
   CommPowerSelect_Init(); // ADC DMA 시작, MPU6050 초기화
   /* USER CODE END 2 */
 
@@ -255,7 +254,7 @@ int main(void)
   CAN_QueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &CAN_Queue_attributes);
 
   /* creation of BT_Queue */
-  BT_QueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &BT_Queue_attributes);
+  BT_QueueHandle = osMessageQueueNew(16, sizeof(BT_Packet_t), &BT_Queue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -878,9 +877,11 @@ void StartCommTask(void *argument)
 #if (!ProjModeState)
         /* 리모콘 보드 */
         if (currentCommMode == COMM_MODE_CAN) {
-            Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-            Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-        	}
+            Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+            Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+        } else if (currentCommMode == COMM_MODE_BT) {
+            BT_Pack_And_Send(BT_ID_REMOTE_SENSOR,
+                             g_remote_sensor_payload, 8);
         }
 
 #else
@@ -917,15 +918,13 @@ void StartCommTask(void *argument)
             if (currentCommMode == COMM_MODE_CAN) {
                 Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
                 Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-            } else if (currentCommMode == COMM_MODE_BT) {
-                BT_Pack_And_Send(BT_ID_ROBOT_STATUS,
-                                 g_robot_status_payload, 8);
             }
 #endif
         }
     }
     /* USER CODE END StartCommTask */
 }
+
 
 /* USER CODE BEGIN Header_StartServoTask */
 /**
@@ -977,7 +976,6 @@ void StartModeTask(void *argument)
   for(;;)
   {
 	  ReadSensor_Update_100ms();   /* 센서/스위치 상태 갱신 */
-	  CommSelect_100ms();          /* currentCommMode 확정 */
 	  osDelay(100);
   }
   /* USER CODE END StartModeTask */

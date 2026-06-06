@@ -3,7 +3,7 @@
  *   BT_Init() 호출
  *     → UART RX 인터럽트 시작
  *     → g_bt_conn_state = BT_STATE_CONNECTING
- *     → Master HC-06이 자동으로 Slave에 연결 시도
+ *     → Master HC-05가 자동으로 Slave(HC-06)에 연결 시도
  *     → 첫 UART 수신 발생 시 → BT_STATE_CONNECTED
  *
  * 연결 감지

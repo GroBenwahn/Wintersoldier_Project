@@ -29,9 +29,6 @@
 #define BT_BOOT_MS   100   /* HC-06 전원 인가 후 안정화 대기 */
 #define CAN_BOOT_MS   50   /* CAN 트랜시버 안정화 대기 */
 
-/* ── 전역 상태 ─────────────────────────────────── */
-volatile CommMode_t currentCommMode   = COMM_MODE_NONE;
-volatile uint8_t    localSwitchStatus = 1;   /* 초기값: CAN 모드 */
 
 /* ── 내부 변수 ─────────────────────────────────── */
 static volatile uint8_t g_comm_toggle   = 0;   /* 0=CAN, 1=BT */
@@ -40,6 +37,8 @@ static volatile uint8_t g_debounce_busy = 0;   /* 디바운스 진행 중 플래
 /* TimerOnce 핸들 — main.c 정의 */
 extern osTimerId_t TimerOnceHandle;
 
+CommMode currentCommMode  = COMM_MODE_IDLE;
+uint8_t  localSwitchStatus = 1;
 /* ── 내부 헬퍼 ─────────────────────────────────── */
 
 static void apply_bt_mode(void)
@@ -57,7 +56,7 @@ static void apply_bt_mode(void)
 
     /* 4. 모드 확정 */
     localSwitchStatus = 0;
-    currentCommMode   = COMM_MODE_BT;
+    currentCommMode = COMM_MODE_BT;
 }
 
 static void apply_can_mode(void)
@@ -75,7 +74,7 @@ static void apply_can_mode(void)
 
     /* 4. 모드 확정 */
     localSwitchStatus = 1;
-    currentCommMode   = COMM_MODE_CAN;
+    currentCommMode = COMM_MODE_CAN;
 }
 
 /* ── 공개 API ──────────────────────────────────── */
@@ -126,7 +125,7 @@ void CommPowerSelect_DebounceExpired(void)
                          GPIO_Input_Switch_Pin) == GPIO_PIN_RESET)
     {
         g_comm_toggle ^= 1;          /* 토글 */
-        currentCommMode = COMM_MODE_NONE;   /* 전환 중 표시 */
+        currentCommMode = COMM_MODE_IDLE;    /* 전환 중 표시 */
 
         if (g_comm_toggle == 1) {
             apply_bt_mode();         /* 홀수 → BT */

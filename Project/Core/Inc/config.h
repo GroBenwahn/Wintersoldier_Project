@@ -34,6 +34,13 @@ typedef enum {
     SYS_ERROR
 } SysState;
 
+/* ── Comm_Power_Select 관련 추가 ── */
+typedef enum {
+    BT_STATE_DISCONNECTED = 0,
+    BT_STATE_CONNECTING,
+    BT_STATE_CONNECTED
+} BT_ConnState_t;
+
 /****************************************************************
     CAN TX 구조체 — ReadSensor가 채운 뒤 Pack → Tx
 
@@ -91,6 +98,9 @@ typedef struct {
 /****************************************************************
     전역 변수 extern 선언
 ****************************************************************/
+/****************************************************************
+    전역 변수 extern 선언
+****************************************************************/
 // CAN TX 데이터
 extern RemoteSensorTx remoteSensorTx;
 extern RobotMotorTx   robotMotorTx;
@@ -99,12 +109,16 @@ extern RobotMotorTx   robotMotorTx;
 extern RemoteSensorRx remoteSensorRx;
 extern RobotMotorRx   robotMotorRx;
 
-// 상대방 시스템 상태 (CAN RX 전용)
+// 상대방 시스템 상태
 extern SystemStatus   sysStatus;
 
 // 시스템
-extern CommMode currentCommMode;
-extern SysState currentSysState;
+extern CommMode        currentCommMode;
+extern SysState        currentSysState;
+extern uint8_t         localSwitchStatus;   /* 0=BT, 1=CAN */
+
+// BT 연결 상태
+extern volatile BT_ConnState_t g_bt_conn_state;
 
 // 주변장치 핸들
 extern osMessageQueueId_t CAN_QueueHandle;
