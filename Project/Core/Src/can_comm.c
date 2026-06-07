@@ -289,18 +289,14 @@ void Pack_Robot_CAN_Message(uint32_t canID) {
     switch(canID) {
         case CAN_ID_ROBOT_STATUS: {
             uint8_t mStatus = 0;
-#if (ProjModeState)
             uint8_t i;
             for(i = 0; i < 6; i++) {
                 mStatus |= (localMotorStatus[i] & 0x01) << i;
             }
-#endif
             RobotCanMsg.ROBOT_STATUS.BIT_FIELD.MotorStatus     = mStatus;
             RobotCanMsg.ROBOT_STATUS.BIT_FIELD.RobotCommStatus = (uint8_t)currentCommMode;
             RobotCanMsg.ROBOT_STATUS.BIT_FIELD._reserved0      = 0;
-#if (ProjModeState)
             RobotCanMsg.ROBOT_STATUS.BIT_FIELD.LcdStatus       = localLcdStatus;
-#endif
             break;
         }
 

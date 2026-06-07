@@ -1,6 +1,0 @@
-../Core/Src/readSensor.c:60:6:ReadSensor_Init	1
-../Core/Src/readSensor.c:71:6:ReadSensor_Update_10ms	1
-../Core/Src/readSensor.c:86:6:ReadSensor_Update_100ms	1
-../Core/Src/readSensor.c:146:6:Read_SwitchRelay	1
-../Core/Src/readSensor.c:166:6:Read_MotorStatus	1
-../Core/Src/readSensor.c:179:6:Read_LCDStatus	1

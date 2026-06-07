@@ -1,5 +1,0 @@
-../Core/Src/Comm_Power_Select.c:44:13:apply_bt_mode	1
-../Core/Src/Comm_Power_Select.c:62:13:apply_can_mode	1
-../Core/Src/Comm_Power_Select.c:87:6:CommPowerSelect_Init	1
-../Core/Src/Comm_Power_Select.c:104:6:CommPowerSelect_ButtonPressed	2
-../Core/Src/Comm_Power_Select.c:121:6:CommPowerSelect_DebounceExpired	3

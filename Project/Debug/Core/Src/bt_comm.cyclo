@@ -1,9 +1,0 @@
-../Core/Src/bt_comm.c:49:16:calc_checksum	2
-../Core/Src/bt_comm.c:57:13:parser_reset	1
-../Core/Src/bt_comm.c:64:13:parse_byte	12
-../Core/Src/bt_comm.c:125:6:BT_Init	1
-../Core/Src/bt_comm.c:144:6:BT_Pack_And_Send	3
-../Core/Src/bt_comm.c:170:9:BT_Receive_Packet	2
-../Core/Src/bt_comm.c:182:9:BT_IsPaired	1
-../Core/Src/bt_comm.c:191:6:BT_ConnectionMonitor_100ms	4
-../Core/Src/bt_comm.c:205:6:HAL_UART_RxCpltCallback	2

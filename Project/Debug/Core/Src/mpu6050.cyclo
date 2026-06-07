@@ -1,3 +1,0 @@
-../Core/Src/mpu6050.c:20:26:WriteReg	1
-../Core/Src/mpu6050.c:32:19:MPU6050_Init	8
-../Core/Src/mpu6050.c:66:19:MPU6050_GetAngle	2
