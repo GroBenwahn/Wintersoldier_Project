@@ -53,15 +53,14 @@ typedef struct {
     int16_t  gyro_roll;          // MPU6050 Roll
 } RemoteSensorTx;                // 리모콘 → CAN 0x100
 
-typedef struct {
-    uint16_t motorAngle[6];      // 목표 서보 각도 (0~180°)
-} RobotMotorTx;                  // 로봇팔 → CAN 0x200/0x201
+/* RobotMotorTx/RobotMotorRx 제거:
+   서보모터는 PWM 단방향 제어로 위치 피드백이 없으므로
+   로봇팔→리모콘 방향의 모터 각도 전송(0x200/0x201)은 불필요 */
 
 /****************************************************************
     CAN RX 구조체 — Update 함수가 채운 뒤 Task에서 사용
 
     로봇팔 보드: Update_RemoteSensorRx → remoteSensorRx (서보 제어 입력)
-    리모콘 보드: Update_RobotMotorRx   → robotMotorRx   (피드백 표시용)
 ****************************************************************/
 typedef struct {
     uint16_t bendingSensor[2];   // CAN 0x100에서 파싱
@@ -69,10 +68,6 @@ typedef struct {
     int16_t  gyro_roll;
     uint8_t  checksum;           // CAN 0x101에서 파싱
 } RemoteSensorRx;                // 로봇팔이 수신
-
-typedef struct {
-    uint16_t motorAngle[6];      // CAN 0x200/0x201에서 파싱
-} RobotMotorRx;                  // 리모콘이 수신
 
 /****************************************************************
     CAN 상태 수신 구조체
@@ -103,11 +98,9 @@ typedef struct {
 ****************************************************************/
 // CAN TX 데이터
 extern RemoteSensorTx remoteSensorTx;
-extern RobotMotorTx   robotMotorTx;
 
 // CAN RX 데이터
 extern RemoteSensorRx remoteSensorRx;
-extern RobotMotorRx   robotMotorRx;
 
 // 상대방 시스템 상태
 extern SystemStatus   sysStatus;

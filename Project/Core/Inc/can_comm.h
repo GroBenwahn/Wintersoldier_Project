@@ -14,10 +14,10 @@
 /****************************************************************
     CAN ID 정의
 ****************************************************************/
-#define CAN_ID_REMOTE_SENSOR    0x100  // 리모콘 센서 데이터_1  10ms 마다 송신
+#define CAN_ID_REMOTE_SENSOR    0x100  // 리모콘 센서 데이터   10ms 마다 송신
 #define CAN_ID_REMOTE_STATUS    0x101  // 리모콘 시스템 상태  100ms 마다 송신
-#define CAN_ID_ROBOT_MOTOR_1    0x200  // 로봇팔 모터 데이터  10ms 마다 송신
-#define CAN_ID_ROBOT_MOTOR_2    0x201  // 로봇팔 모터 데이터  10ms 마다 송신
+/* CAN_ID_ROBOT_MOTOR_1(0x200), CAN_ID_ROBOT_MOTOR_2(0x201) 제거:
+   서보는 PWM 단방향 제어이므로 로봇팔→리모콘 모터 각도 전송 불필요 */
 #define CAN_ID_ROBOT_STATUS     0x202  // 로봇팔 시스템 상태  100ms 마다 송신
 
 #define CAN_TIMEOUT_MS          300
@@ -59,34 +59,6 @@ typedef struct
         uint8_t BYTE_FIELD[8];
         struct __attribute__((packed))
         {
-        	uint16_t MotorAngle_0 : 16;
-        	uint16_t MotorAngle_1 : 16;
-        	uint16_t MotorAngle_2 : 16;
-        	uint16_t MotorAngle_3 : 16;
-        }BIT_FIELD;
-    };
-} _ROBOT_MOTOR_1;
-
-typedef struct
-{
-    union
-    {
-        uint8_t BYTE_FIELD[8];
-        struct __attribute__((packed))
-        {
-        	uint16_t MotorAngle_4 : 16;
-        	uint16_t MotorAngle_5 : 16;
-        }BIT_FIELD;
-    };
-} _ROBOT_MOTOR_2;
-
-typedef struct
-{
-    union
-    {
-        uint8_t BYTE_FIELD[8];
-        struct __attribute__((packed))
-        {
         	uint8_t MotorStatus     : 8;   // bit0~5 = 모터 0~5 이상 여부
         	uint8_t RobotCommStatus : 8;
         	uint8_t _reserved0      : 8;   // 전압 측정 핀 없음
@@ -103,8 +75,6 @@ typedef struct
 
 typedef struct
 {
-	_ROBOT_MOTOR_1	ROBOT_MOTOR_1;
-	_ROBOT_MOTOR_2	ROBOT_MOTOR_2;
 	_ROBOT_STATUS	ROBOT_STATUS;
 }ROBOT_CAN_MESSAGE;
 
@@ -123,7 +93,6 @@ uint8_t          CAN_CalcChecksum(uint8_t *data, uint8_t length);
 void             Fill_Remote_CAN_Message(uint32_t canID, uint8_t rxData[8]);
 void             Fill_Robot_CAN_Message(uint32_t canID, uint8_t rxData[8]);
 void             Update_RemoteSensorRx(void);           // 0x100 수신 → remoteSensorRx
-void             Update_RobotMotorRx(void);             // 0x200/0x201 수신 → robotMotorRx
 void             Update_SystemStatus_FromRemote(void);  // 0x101 수신 → sysStatus
 void             Update_SystemStatus_FromRobot(void);   // 0x202 수신 → sysStatus
 

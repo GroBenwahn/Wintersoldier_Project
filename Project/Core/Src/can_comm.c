@@ -24,7 +24,6 @@ uint8_t CAN_CalcChecksum(uint8_t *data, uint8_t length);
 void Fill_Remote_CAN_Message(uint32_t canID, uint8_t rxData[8]);
 void Fill_Robot_CAN_Message(uint32_t canID, uint8_t rxData[8]);
 void Update_RemoteSensorRx(void);
-void Update_RobotMotorRx(void);
 void Update_SystemStatus_FromRemote(void);
 void Update_SystemStatus_FromRobot(void);
 void Pack_Remote_CAN_Message(uint32_t canID);
@@ -40,13 +39,11 @@ HAL_StatusTypeDef Tx_Robot_CAN_Message(uint32_t canID);
 REMOTE_CAN_MESSAGE RemoteCanMsg = {0};
 ROBOT_CAN_MESSAGE  RobotCanMsg  = {0};
 
-// CAN TX 데이터 (ReadSensor / 서보 제어 로직이 채움)
+// CAN TX 데이터 (ReadSensor가 채움)
 RemoteSensorTx remoteSensorTx = {0};
-RobotMotorTx   robotMotorTx   = {0};
 
 // CAN RX 데이터 (Update 함수가 채움)
 RemoteSensorRx remoteSensorRx = {0};
-RobotMotorRx   robotMotorRx   = {0};
 
 // 상대방 시스템 상태 (Update_SystemStatus_From* 만 채움)
 SystemStatus sysStatus = {0};
@@ -79,10 +76,10 @@ void CAN_Start(void) {
     filterConfig.FilterID2    = 0x1FF;
     HAL_FDCAN_ConfigFilter(&hfdcan1, &filterConfig);
 
-    // 로봇팔 데이터 범위 (0x200~0x2FF)
+    // 로봇팔 상태 메시지만 수신 (0x200/0x201 모터 ID 제거 후 0x202만 필요)
     filterConfig.FilterIndex  = 1;
-    filterConfig.FilterID1    = 0x200;
-    filterConfig.FilterID2    = 0x2FF;
+    filterConfig.FilterID1    = 0x202;
+    filterConfig.FilterID2    = 0x202;
     HAL_FDCAN_ConfigFilter(&hfdcan1, &filterConfig);
 
     HAL_FDCAN_ActivateNotification(&hfdcan1,
@@ -181,22 +178,6 @@ void Fill_Robot_CAN_Message(uint32_t canID, uint8_t rxData[8]) {
     uint8_t i;
 
     switch(canID) {
-        case CAN_ID_ROBOT_MOTOR_1:   // 0x200 — 모터 0~3
-            for(i = 0; i < 8; i++) {
-                RobotCanMsg.ROBOT_MOTOR_1.BYTE_FIELD[i] = rxData[i];
-            }
-            DIAG_MsgRxCnt_Robot++;
-            Update_RobotMotorRx();
-            break;
-
-        case CAN_ID_ROBOT_MOTOR_2:   // 0x201 — 모터 4~5
-            for(i = 0; i < 8; i++) {
-                RobotCanMsg.ROBOT_MOTOR_2.BYTE_FIELD[i] = rxData[i];
-            }
-            DIAG_MsgRxCnt_Robot++;
-            Update_RobotMotorRx();
-            break;
-
         case CAN_ID_ROBOT_STATUS:    // 0x202 — 로봇팔 시스템 상태
             for(i = 0; i < 8; i++) {
                 RobotCanMsg.ROBOT_STATUS.BYTE_FIELD[i] = rxData[i];
@@ -221,20 +202,6 @@ void Update_RemoteSensorRx(void) {
     remoteSensorRx.bendingSensor[1] = RemoteCanMsg.REMOTE_SENSOR.BIT_FIELD.BendingSensor_1;
     remoteSensorRx.gyro_pitch       = RemoteCanMsg.REMOTE_SENSOR.BIT_FIELD.GyroPitch;
     remoteSensorRx.gyro_roll        = RemoteCanMsg.REMOTE_SENSOR.BIT_FIELD.GyroRoll;
-}
-
-/****************************************************************
-    Function: Update_RobotMotorRx
-    Description: CAN 0x200/0x201 수신 후 호출
-                 RobotCanMsg → robotMotorRx (리모콘 피드백용)
-****************************************************************/
-void Update_RobotMotorRx(void) {
-    robotMotorRx.motorAngle[0] = RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_0;
-    robotMotorRx.motorAngle[1] = RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_1;
-    robotMotorRx.motorAngle[2] = RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_2;
-    robotMotorRx.motorAngle[3] = RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_3;
-    robotMotorRx.motorAngle[4] = RobotCanMsg.ROBOT_MOTOR_2.BIT_FIELD.MotorAngle_4;
-    robotMotorRx.motorAngle[5] = RobotCanMsg.ROBOT_MOTOR_2.BIT_FIELD.MotorAngle_5;
 }
 
 /****************************************************************
@@ -320,18 +287,6 @@ void Pack_Remote_CAN_Message(uint32_t canID) {
 ****************************************************************/
 void Pack_Robot_CAN_Message(uint32_t canID) {
     switch(canID) {
-        case CAN_ID_ROBOT_MOTOR_1:
-            RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_0 = robotMotorTx.motorAngle[0];
-            RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_1 = robotMotorTx.motorAngle[1];
-            RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_2 = robotMotorTx.motorAngle[2];
-            RobotCanMsg.ROBOT_MOTOR_1.BIT_FIELD.MotorAngle_3 = robotMotorTx.motorAngle[3];
-            break;
-
-        case CAN_ID_ROBOT_MOTOR_2:
-            RobotCanMsg.ROBOT_MOTOR_2.BIT_FIELD.MotorAngle_4 = robotMotorTx.motorAngle[4];
-            RobotCanMsg.ROBOT_MOTOR_2.BIT_FIELD.MotorAngle_5 = robotMotorTx.motorAngle[5];
-            break;
-
         case CAN_ID_ROBOT_STATUS: {
             uint8_t mStatus = 0;
 #if (ProjModeState)
@@ -395,18 +350,8 @@ HAL_StatusTypeDef Tx_Robot_CAN_Message(uint32_t canID) {
     CAN_TxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
     CAN_TxHeader.MessageMarker      = 0;
 
-    switch(canID) {
-        case CAN_ID_ROBOT_MOTOR_1:
-            memcpy(CAN_TxData, RobotCanMsg.ROBOT_MOTOR_1.BYTE_FIELD, 8);
-            break;
-        case CAN_ID_ROBOT_MOTOR_2:
-            memcpy(CAN_TxData, RobotCanMsg.ROBOT_MOTOR_2.BYTE_FIELD, 8);
-            break;
-        case CAN_ID_ROBOT_STATUS:
-            memcpy(CAN_TxData, RobotCanMsg.ROBOT_STATUS.BYTE_FIELD, 8);
-            break;
-        default:
-            return HAL_ERROR;
-    }
+    if (canID != CAN_ID_ROBOT_STATUS) return HAL_ERROR;
+
+    memcpy(CAN_TxData, RobotCanMsg.ROBOT_STATUS.BYTE_FIELD, 8);
     return HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &CAN_TxHeader, CAN_TxData);
 }

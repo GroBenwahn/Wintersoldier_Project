@@ -885,13 +885,8 @@ void StartCommTask(void *argument)
         }
 
 #else
-        /* 로봇팔 보드 — 수신된 BT 패킷으로 모터 제어 */
-        if (currentCommMode == COMM_MODE_CAN) {
-            Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
-            Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_1);
-            Pack_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
-            Tx_Robot_CAN_Message(CAN_ID_ROBOT_MOTOR_2);
-        } else if (currentCommMode == COMM_MODE_BT) {
+        /* 로봇팔 보드 — CAN 모드는 수신만, BT 모드는 패킷 수신 후 큐 전달 */
+        if (currentCommMode == COMM_MODE_BT) {
             BT_Packet_t pkt;
             if (BT_Receive_Packet(&pkt)) {
                 if (pkt.id == BT_ID_REMOTE_SENSOR) {
