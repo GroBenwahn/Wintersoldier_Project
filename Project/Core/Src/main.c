@@ -208,7 +208,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   ReadSensor_Init();      // ADC DMA 시작, MPU6050 초기화
-  CommPowerSelect_Init(); // 릴레이 초기화 → CAN 트랜시버 전원 인가 → CAN_Start
+  CommPowerSelect_Init(); // 릴레이 초기화 → BT 모듈 전원 인가 → BT_Init
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -880,7 +880,7 @@ void StartCommTask(void *argument)
             Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
         } else if (currentCommMode == COMM_MODE_BT) {
             BT_Pack_And_Send(BT_ID_REMOTE_SENSOR,
-                             g_remote_sensor_payload, 8);
+                             (uint8_t *)&remoteSensorTx, sizeof(remoteSensorTx));
         }
 
 #else
@@ -969,7 +969,8 @@ void StartModeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  ReadSensor_Update_100ms();   /* 센서/스위치 상태 갱신 */
+	  ReadSensor_Update_100ms();        /* 릴레이/센서 상태 갱신 */
+	  BT_ConnectionMonitor_100ms();     /* BT 수신 타임아웃 감지 (3초 무수신 → DISCONNECTED) */
 	  osDelay(100);
   }
   /* USER CODE END StartModeTask */

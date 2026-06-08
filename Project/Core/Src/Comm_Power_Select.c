@@ -48,8 +48,8 @@ static void apply_bt_mode(void)
                       GPIO_Relay_Output_Pin,
                       RELAY_BT_STATE);
 
-    /* 2. HC-06 부팅 안정화 대기 */
-    osDelay(BT_BOOT_MS);
+    /* 2. HC-06 부팅 안정화 대기 (init/callback 양쪽에서 호출되므로 HAL_Delay 사용) */
+    HAL_Delay(BT_BOOT_MS);
 
     /* 3. UART 수신 인터럽트 시작 */
     BT_Init();
@@ -66,8 +66,8 @@ static void apply_can_mode(void)
                       GPIO_Relay_Output_Pin,
                       RELAY_CAN_STATE);
 
-    /* 2. 트랜시버 안정화 대기 */
-    osDelay(CAN_BOOT_MS);
+    /* 2. 트랜시버 안정화 대기 (init/callback 양쪽에서 호출되므로 HAL_Delay 사용) */
+    HAL_Delay(CAN_BOOT_MS);
 
     /* 3. FDCAN 시작 (MX_FDCAN1_Init은 main에서 완료됨) */
     CAN_Start();
