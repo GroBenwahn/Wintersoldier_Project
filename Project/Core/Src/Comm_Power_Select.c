@@ -31,7 +31,7 @@
 
 
 /* ── 내부 변수 ─────────────────────────────────── */
-static volatile uint8_t g_comm_toggle   = 0;   /* 0=CAN, 1=BT */
+static volatile uint8_t g_comm_toggle   = 1;   /* 0=CAN, 1=BT  (기본: BT) */
 static volatile uint8_t g_debounce_busy = 0;   /* 디바운스 진행 중 플래그 */
 
 /* TimerOnce 핸들 — main.c 정의 */
@@ -55,7 +55,7 @@ static void apply_bt_mode(void)
     BT_Init();
 
     /* 4. 모드 확정 */
-    localSwitchStatus = 0;
+    localSwitchStatus = 1;   /* 1 = BT 모드 */
     currentCommMode = COMM_MODE_BT;
 }
 
@@ -73,7 +73,7 @@ static void apply_can_mode(void)
     CAN_Start();
 
     /* 4. 모드 확정 */
-    localSwitchStatus = 1;
+    localSwitchStatus = 0;   /* 0 = CAN 모드 */
     currentCommMode = COMM_MODE_CAN;
 }
 
@@ -81,14 +81,14 @@ static void apply_can_mode(void)
 
 /*
   @brief 시스템 시작 시 초기 상태 설정
-        기본값: CAN 모드 (릴레이 OFF)
+        기본값: BT 모드 (릴레이 ON)
         main.c의 USER CODE BEGIN 2 에서 호출
  */
 void CommPowerSelect_Init(void)
 {
-    g_comm_toggle   = 0;
+    g_comm_toggle   = 1;
     g_debounce_busy = 0;
-    apply_can_mode();
+    apply_bt_mode();
 }
 
 /*

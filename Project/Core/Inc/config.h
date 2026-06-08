@@ -108,7 +108,7 @@ extern SystemStatus   sysStatus;
 // 시스템
 extern CommMode        currentCommMode;
 extern SysState        currentSysState;
-extern uint8_t         localSwitchStatus;   /* 0=BT, 1=CAN */
+extern uint8_t         localSwitchStatus;   /* 0=CAN, 1=BT */
 
 // BT 연결 상태
 extern volatile BT_ConnState_t g_bt_conn_state;

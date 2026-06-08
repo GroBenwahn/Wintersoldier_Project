@@ -207,9 +207,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  CAN_Start();
-  ReadSensor_Init();     // CAN 필터 설정 + HAL_FDCAN_Start
-  CommPowerSelect_Init(); // ADC DMA 시작, MPU6050 초기화
+  ReadSensor_Init();      // ADC DMA 시작, MPU6050 초기화
+  CommPowerSelect_Init(); // 릴레이 초기화 → CAN 트랜시버 전원 인가 → CAN_Start
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -244,7 +243,7 @@ int main(void)
   Timer100msHandle = osTimerNew(Timer100ms_Callback, osTimerPeriodic, NULL, &Timer100ms_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
-  osTimerStart(TimerOnceHandle,  1);    // 1ms one-shot (초기화 완료 신호용)
+  // TimerOnce: CommPowerSelect_ButtonPressed()에서 디바운스 시 직접 시작
   osTimerStart(Timer10msHandle,  10);   // 10ms 주기 → CAN_Sem → Comm_Task
   osTimerStart(Timer100msHandle, 100);  // 100ms 주기 → LCD_Sem → LCD_Task
   /* USER CODE END RTOS_TIMERS */

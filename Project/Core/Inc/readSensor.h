@@ -24,8 +24,7 @@ extern uint8_t localLcdStatus;      // 0=정상, 1=이상
 extern uint8_t localMotorStatus[6]; // 모터 0~5 PWM 출력 여부
 #endif
 
-extern uint8_t localRelayStatus;
-extern uint8_t localSwitchStatus;   // bit0=스위치 현재 상태
+extern uint8_t localRelayStatus;    // 릴레이 출력 상태 (0=CAN측, 1=BT측)
 /****************************************************************
     Function Declaration
 ****************************************************************/

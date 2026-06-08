@@ -50,7 +50,6 @@ uint8_t localLcdStatus      = 0;
 uint8_t localMotorStatus[6] = {0};
 #endif
 
-uint8_t localSwitchStatus = 0;
 uint8_t localRelayStatus  = 0;
 
 /****************************************************************
@@ -144,11 +143,11 @@ void Read_GyroSensor(void) {
                  Pack_Remote_CAN_Message(0x101)이 읽어서 송신
 ****************************************************************/
 void Read_SwitchRelay(void) {
-    localSwitchStatus =
-        (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_RESET) ? 1 : 0;
-
+    // localSwitchStatus: Comm_Power_Select.c가 관리 (버튼 토글 시 갱신)
+    // localRelayStatus:  릴레이 출력 핀 실제 레벨 읽기 → CAN 0x101 상태 보고용
     localRelayStatus =
-        (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET) ? 1 : 0;
+        (HAL_GPIO_ReadPin(GPIO_Relay_Output_GPIO_Port,
+                          GPIO_Relay_Output_Pin) == GPIO_PIN_SET) ? 1 : 0;
 }
 
 
