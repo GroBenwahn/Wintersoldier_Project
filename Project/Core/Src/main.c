@@ -804,9 +804,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Gyro_Sensor_INT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : GPIO_Input_Switch_Pin */
+  /*Configure GPIO pin : GPIO_Input_Switch_Pin (PB4 — PULLUP, 누르면 FALLING) */
   GPIO_InitStruct.Pin = GPIO_Input_Switch_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIO_Input_Switch_GPIO_Port, &GPIO_InitStruct);
 
@@ -817,9 +817,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIO_Relay_Output_GPIO_Port, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  /* EXTI interrupt init */
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);   // PA7 (Gyro INT)
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);     // PB4 (Switch)
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -969,9 +971,10 @@ void StartModeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  ReadSensor_Update_100ms();        /* 릴레이/센서 상태 갱신 */
-	  BT_ConnectionMonitor_100ms();     /* BT 수신 타임아웃 감지 (3초 무수신 → DISCONNECTED) */
-	  osDelay(100);
+      CommPowerSelect_Apply();          /* 버튼 전환 요청 처리 */
+      ReadSensor_Update_100ms();        /* 릴레이/센서 상태 갱신 */
+      BT_ConnectionMonitor_100ms();     /* BT 수신 타임아웃 감지 */
+      osDelay(100);
   }
   /* USER CODE END StartModeTask */
 }

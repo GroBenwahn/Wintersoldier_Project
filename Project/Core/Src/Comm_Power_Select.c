@@ -19,6 +19,7 @@
 #include "Comm_Power_Select.h"
 #include "bt_comm.h"
 #include "can_comm.h"
+#include "timers.h"   /* xTimerStartFromISR — ISR 안전 타이머 API */
 
 /* ── 릴레이 출력 레벨 정의 (배선에 따라 조정) ── */
 #define RELAY_BT_STATE   GPIO_PIN_SET    /* 릴레이 ON  → BT 전원  */
@@ -31,8 +32,9 @@
 
 
 /* ── 내부 변수 ─────────────────────────────────── */
-static volatile uint8_t g_comm_toggle   = 1;   /* 0=CAN, 1=BT  (기본: BT) */
-static volatile uint8_t g_debounce_busy = 0;   /* 디바운스 진행 중 플래그 */
+static volatile uint8_t g_comm_toggle        = 1;   /* 0=CAN, 1=BT */
+static volatile uint8_t g_debounce_busy      = 0;   /* 디바운스 진행 중 플래그 */
+static volatile uint8_t g_mode_change_pending = 0;  /* Mode_Task가 처리할 전환 요청 */
 
 /* TimerOnce 핸들 — main.c 정의 */
 extern osTimerId_t TimerOnceHandle;
@@ -106,7 +108,12 @@ void CommPowerSelect_ButtonPressed(void)
     if (g_debounce_busy) return;   /* 디바운스 진행 중이면 무시 */
 
     g_debounce_busy = 1;
-    osTimerStart(TimerOnceHandle, DEBOUNCE_MS);
+
+    /* ISR 컨텍스트에서 호출되므로 ISR 전용 API 사용
+       osTimerStart()는 ISR에서 호출 불가 → xTimerStartFromISR() 사용 */
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xTimerStartFromISR(TimerOnceHandle, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 /**
@@ -124,16 +131,23 @@ void CommPowerSelect_DebounceExpired(void)
     if (HAL_GPIO_ReadPin(GPIO_Input_Switch_GPIO_Port,
                          GPIO_Input_Switch_Pin) == GPIO_PIN_RESET)
     {
-        g_comm_toggle ^= 1;          /* 토글 */
-        currentCommMode = COMM_MODE_IDLE;    /* 전환 중 표시 */
-
-        if (g_comm_toggle == 1) {
-            apply_bt_mode();         /* 홀수 → BT */
-        } else {
-            apply_can_mode();        /* 짝수 → CAN */
-        }
+        g_comm_toggle ^= 1;
+        currentCommMode = COMM_MODE_IDLE;
+        g_mode_change_pending = 1;   /* 실제 전환은 Mode_Task에서 처리 */
     }
 
     g_debounce_busy = 0;
+}
+
+/* Mode_Task 100ms 루프에서 호출 — 실제 릴레이 전환 및 초기화 수행 */
+void CommPowerSelect_Apply(void)
+{
+    if (!g_mode_change_pending) return;
+    g_mode_change_pending = 0;
+
+    if (g_comm_toggle == 1)
+        apply_bt_mode();
+    else
+        apply_can_mode();
 }
 
