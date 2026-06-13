@@ -65,8 +65,8 @@ all: main-build
 main-build: RobotArmController.elf secondary-outputs
 
 # Tool invocations
-RobotArmController.elf RobotArmController.map: $(OBJS) $(USER_OBJS) fail-specified-linker-script-missing makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "RobotArmController.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 --specs=nosys.specs -Wl,-Map="RobotArmController.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+RobotArmController.elf RobotArmController.map: $(OBJS) $(USER_OBJS) C:\un_p\Wintersoldier_Project\Project\STM32G431KBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "RobotArmController.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\un_p\Wintersoldier_Project\Project\STM32G431KBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RobotArmController.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
