@@ -97,7 +97,7 @@ osThreadId_t Mode_TaskHandle;
 const osThreadAttr_t Mode_Task_attributes = {
   .name = "Mode_Task",
   .priority = (osPriority_t) osPriorityAboveNormal,
-  .stack_size = 128 * 4
+  .stack_size = 512 * 4
 };
 /* Definitions for CAN_Queue */
 osMessageQueueId_t CAN_QueueHandle;

@@ -20,8 +20,9 @@ RemoteSensorTx remoteSensorTx = {0};   /* readSensor.c가 채움 → Controller 
 RemoteSensorRx remoteSensorRx = {0};   /* Robot RX가 채움   → Servo_Task 사용 */
 SystemStatus   sysStatus      = {0};   /* 상대방 보드 상태 (RX 핸들러가 채움)  */
 
-uint32_t DIAG_MsgRxCnt_Remote = 0;
-uint32_t DIAG_MsgRxCnt_Robot  = 0;
+uint32_t DIAG_MsgRxCnt_Remote_100 	= 0;   /* 0x100 수신 횟수 */
+uint32_t DIAG_MsgRxCnt_Remote_101   = 0;   /* 0x101 수신 횟수 */
+uint32_t DIAG_MsgRxCnt_Robot  		= 0;   /* 0x202 수신 횟수 */
 
 /****************************************************************
     내부 변수
@@ -87,18 +88,25 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 
     uint32_t id = rxHeader.Identifier;
 
-    if (id >= 0x100 && id <= 0x1FF) {
+    if (id == CAN_ID_REMOTE_SENSOR) {           /* 0x100 */
         memcpy(RemoteCanMsg.REMOTE_SENSOR.BYTE_FIELD, rxData, 8);
-        DIAG_MsgRxCnt_Remote++;
+        DIAG_MsgRxCnt_Remote_100++;
 #if (ProjModeState)
-        Robot_CAN_RX_Handle(id, rxData);        /* 로봇팔만 처리 */
+        Robot_CAN_RX_Handle(id, rxData);
 #endif
 
-    } else if (id >= 0x200 && id <= 0x2FF) {
+    } else if (id == CAN_ID_REMOTE_STATUS) {    /* 0x101 */
+        memcpy(RemoteCanMsg.REMOTE_STATUS.BYTE_FIELD, rxData, 8);
+        DIAG_MsgRxCnt_Remote_101++;
+#if (ProjModeState)
+        Robot_CAN_RX_Handle(id, rxData);
+#endif
+
+    } else if (id == CAN_ID_ROBOT_STATUS) {     /* 0x202 */
         memcpy(RobotCanMsg.ROBOT_STATUS.BYTE_FIELD, rxData, 8);
         DIAG_MsgRxCnt_Robot++;
 #if (!ProjModeState)
-        Controller_CAN_RX_Handle(id, rxData);   /* 리모콘만 처리 */
+        Controller_CAN_RX_Handle(id, rxData);
 #endif
     }
 }

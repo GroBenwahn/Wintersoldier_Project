@@ -1,5 +1,4 @@
-../Core/Src/debug_comm.c:28:13:_force_can_mode	1
-../Core/Src/debug_comm.c:37:13:_force_bt_mode	1
-../Core/Src/debug_comm.c:49:6:Debug_Comm_Init	3
-../Core/Src/debug_comm.c:63:6:Debug_Comm_ForceMode	3
-../Core/Src/debug_comm.c:84:6:Debug_Comm_Poll	4
+../Core/Src/debug_comm.c:27:20:_uart_rx_stop	1
+../Core/Src/debug_comm.c:56:20:_bt_init_safe	1
+../Core/Src/debug_comm.c:63:6:Debug_Comm_Init	3
+../Core/Src/debug_comm.c:107:6:Debug_Comm_Poll	5

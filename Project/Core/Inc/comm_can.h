@@ -79,8 +79,10 @@ extern RemoteSensorTx remoteSensorTx;    /* readSensor → Pack → TX */
 extern RemoteSensorRx remoteSensorRx;    /* RX → Servo_Task         */
 extern SystemStatus   sysStatus;         /* 상대방 보드 상태          */
 
-extern uint32_t DIAG_MsgRxCnt_Remote;
-extern uint32_t DIAG_MsgRxCnt_Robot;
+extern uint32_t DIAG_MsgRxCnt_Remote;   /* 0x100 수신 횟수 */
+extern uint32_t DIAG_MsgRxCnt_101;      /* 0x101 수신 횟수 */
+extern uint32_t DIAG_MsgRxCnt_Robot;    /* 0x202 수신 횟수 */
+extern volatile uint8_t DIAG_LastRaw_101[8];  /* 0x101 마지막 raw 바이트 */
 
 /****************************************************************
     하드웨어 계층 함수

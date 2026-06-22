@@ -8,7 +8,9 @@ C_SRCS += \
 ../Core/Src/Comm_Power_Select.c \
 ../Core/Src/app_freertos.c \
 ../Core/Src/bt_comm.c \
-../Core/Src/can_comm.c \
+../Core/Src/comm_can.c \
+../Core/Src/comm_can_controller.c \
+../Core/Src/comm_can_robot.c \
 ../Core/Src/debug_comm.c \
 ../Core/Src/main.c \
 ../Core/Src/mpu6050.c \
@@ -24,7 +26,9 @@ OBJS += \
 ./Core/Src/Comm_Power_Select.o \
 ./Core/Src/app_freertos.o \
 ./Core/Src/bt_comm.o \
-./Core/Src/can_comm.o \
+./Core/Src/comm_can.o \
+./Core/Src/comm_can_controller.o \
+./Core/Src/comm_can_robot.o \
 ./Core/Src/debug_comm.o \
 ./Core/Src/main.o \
 ./Core/Src/mpu6050.o \
@@ -40,7 +44,9 @@ C_DEPS += \
 ./Core/Src/Comm_Power_Select.d \
 ./Core/Src/app_freertos.d \
 ./Core/Src/bt_comm.d \
-./Core/Src/can_comm.d \
+./Core/Src/comm_can.d \
+./Core/Src/comm_can_controller.d \
+./Core/Src/comm_can_robot.d \
 ./Core/Src/debug_comm.d \
 ./Core/Src/main.d \
 ./Core/Src/mpu6050.d \
@@ -60,7 +66,7 @@ Core/Src/%.o Core/Src/%.su Core/Src/%.cyclo: ../Core/Src/%.c Core/Src/subdir.mk
 clean: clean-Core-2f-Src
 
 clean-Core-2f-Src:
-	-$(RM) ./Core/Src/Comm_Power_Select.cyclo ./Core/Src/Comm_Power_Select.d ./Core/Src/Comm_Power_Select.o ./Core/Src/Comm_Power_Select.su ./Core/Src/app_freertos.cyclo ./Core/Src/app_freertos.d ./Core/Src/app_freertos.o ./Core/Src/app_freertos.su ./Core/Src/bt_comm.cyclo ./Core/Src/bt_comm.d ./Core/Src/bt_comm.o ./Core/Src/bt_comm.su ./Core/Src/can_comm.cyclo ./Core/Src/can_comm.d ./Core/Src/can_comm.o ./Core/Src/can_comm.su ./Core/Src/debug_comm.cyclo ./Core/Src/debug_comm.d ./Core/Src/debug_comm.o ./Core/Src/debug_comm.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/mpu6050.cyclo ./Core/Src/mpu6050.d ./Core/Src/mpu6050.o ./Core/Src/mpu6050.su ./Core/Src/readSensor.cyclo ./Core/Src/readSensor.d ./Core/Src/readSensor.o ./Core/Src/readSensor.su ./Core/Src/stm32g4xx_hal_msp.cyclo ./Core/Src/stm32g4xx_hal_msp.d ./Core/Src/stm32g4xx_hal_msp.o ./Core/Src/stm32g4xx_hal_msp.su ./Core/Src/stm32g4xx_hal_timebase_tim.cyclo ./Core/Src/stm32g4xx_hal_timebase_tim.d ./Core/Src/stm32g4xx_hal_timebase_tim.o ./Core/Src/stm32g4xx_hal_timebase_tim.su ./Core/Src/stm32g4xx_it.cyclo ./Core/Src/stm32g4xx_it.d ./Core/Src/stm32g4xx_it.o ./Core/Src/stm32g4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32g4xx.cyclo ./Core/Src/system_stm32g4xx.d ./Core/Src/system_stm32g4xx.o ./Core/Src/system_stm32g4xx.su
+	-$(RM) ./Core/Src/Comm_Power_Select.cyclo ./Core/Src/Comm_Power_Select.d ./Core/Src/Comm_Power_Select.o ./Core/Src/Comm_Power_Select.su ./Core/Src/app_freertos.cyclo ./Core/Src/app_freertos.d ./Core/Src/app_freertos.o ./Core/Src/app_freertos.su ./Core/Src/bt_comm.cyclo ./Core/Src/bt_comm.d ./Core/Src/bt_comm.o ./Core/Src/bt_comm.su ./Core/Src/comm_can.cyclo ./Core/Src/comm_can.d ./Core/Src/comm_can.o ./Core/Src/comm_can.su ./Core/Src/comm_can_controller.cyclo ./Core/Src/comm_can_controller.d ./Core/Src/comm_can_controller.o ./Core/Src/comm_can_controller.su ./Core/Src/comm_can_robot.cyclo ./Core/Src/comm_can_robot.d ./Core/Src/comm_can_robot.o ./Core/Src/comm_can_robot.su ./Core/Src/debug_comm.cyclo ./Core/Src/debug_comm.d ./Core/Src/debug_comm.o ./Core/Src/debug_comm.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/mpu6050.cyclo ./Core/Src/mpu6050.d ./Core/Src/mpu6050.o ./Core/Src/mpu6050.su ./Core/Src/readSensor.cyclo ./Core/Src/readSensor.d ./Core/Src/readSensor.o ./Core/Src/readSensor.su ./Core/Src/stm32g4xx_hal_msp.cyclo ./Core/Src/stm32g4xx_hal_msp.d ./Core/Src/stm32g4xx_hal_msp.o ./Core/Src/stm32g4xx_hal_msp.su ./Core/Src/stm32g4xx_hal_timebase_tim.cyclo ./Core/Src/stm32g4xx_hal_timebase_tim.d ./Core/Src/stm32g4xx_hal_timebase_tim.o ./Core/Src/stm32g4xx_hal_timebase_tim.su ./Core/Src/stm32g4xx_it.cyclo ./Core/Src/stm32g4xx_it.d ./Core/Src/stm32g4xx_it.o ./Core/Src/stm32g4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32g4xx.cyclo ./Core/Src/system_stm32g4xx.d ./Core/Src/system_stm32g4xx.o ./Core/Src/system_stm32g4xx.su
 
 .PHONY: clean-Core-2f-Src
 
