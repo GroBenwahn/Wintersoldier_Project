@@ -13,8 +13,7 @@
 
 /****************************************************************
     로컬 상태 변수 extern 선언
-    — 이 보드 자신의 상태값 (CAN 송신 Pack 함수가 읽어감)
-    — can_comm.c의 Pack 함수에서 include하여 사용
+    — 이 보드 자신의 상태값 (comm_can_controller/robot TX 함수가 읽어감)
 ****************************************************************/
 #if (!ProjModeState)                // 리모콘 전용
 extern uint8_t localSensorStatus;   // bit0=bending0, bit1=bending1, bit2=gyro 이상

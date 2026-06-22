@@ -18,7 +18,7 @@
 
 #include "Comm_Power_Select.h"
 #include "bt_comm.h"
-#include "can_comm.h"
+#include "comm_can.h"
 #include "timers.h"   /* xTimerStartFromISR — ISR 안전 타이머 API */
 
 /* ── 릴레이 출력 레벨 정의 (배선에 따라 조정) ── */

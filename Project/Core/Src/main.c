@@ -22,10 +22,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "can_comm.h"
+#include "comm_can.h"
+#include "comm_can_controller.h"
+#include "comm_can_robot.h"
 #include "readSensor.h"
 #include "bt_comm.h"
 #include "Comm_Power_Select.h"
+#include "debug_comm.h"     /* 릴레이 없이 CAN/BT 테스트 시 사용 (DEBUG_COMM_ENABLE 참고) */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -208,7 +211,19 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   ReadSensor_Init();      // ADC DMA 시작, MPU6050 초기화
-  CommPowerSelect_Init(); // 릴레이 초기화 → BT 모듈 전원 인가 → BT_Init
+
+  /* ── 통신 초기화: 아래 둘 중 하나만 활성화 ──────────────
+     [실사용]  릴레이 하드웨어 연결 시
+               CommPowerSelect_Init();
+     [디버그]  릴레이 없이 CAN/BT 직접 테스트 시
+               debug_comm.h에서 DEBUG_COMM_MODE 설정 후 사용
+               Debug_Comm_Init();
+     ──────────────────────────────────────────────────── */
+#if (DEBUG_COMM_ENABLE)
+  Debug_Comm_Init();
+#else
+  CommPowerSelect_Init();
+#endif
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -878,8 +893,7 @@ void StartCommTask(void *argument)
 #if (!ProjModeState)
         /* 리모콘 보드 */
         if (currentCommMode == COMM_MODE_CAN) {
-            Pack_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
-            Tx_Remote_CAN_Message(CAN_ID_REMOTE_SENSOR);
+            Controller_CAN_TX_Sensor();
         } else if (currentCommMode == COMM_MODE_BT) {
             BT_Pack_And_Send(BT_ID_REMOTE_SENSOR,
                              (uint8_t *)&remoteSensorTx, sizeof(remoteSensorTx));
@@ -906,14 +920,12 @@ void StartCommTask(void *argument)
 #if (!ProjModeState)
             /* 리모콘 보드 — CAN만 상태 송신, BT는 없음 */
             if (currentCommMode == COMM_MODE_CAN) {
-                Pack_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
-                Tx_Remote_CAN_Message(CAN_ID_REMOTE_STATUS);
+                Controller_CAN_TX_Status();
             }
 #else
             /* 로봇팔 보드 */
             if (currentCommMode == COMM_MODE_CAN) {
-                Pack_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
-                Tx_Robot_CAN_Message(CAN_ID_ROBOT_STATUS);
+                Robot_CAN_TX_Status();
             }
 #endif
         }
@@ -974,6 +986,9 @@ void StartModeTask(void *argument)
       CommPowerSelect_Apply();          /* 버튼 전환 요청 처리 */
       ReadSensor_Update_100ms();        /* 릴레이/센서 상태 갱신 */
       BT_ConnectionMonitor_100ms();     /* BT 수신 타임아웃 감지 */
+#if (DEBUG_COMM_ENABLE)
+      Debug_Comm_Poll();                /* Live Expression에서 g_debug_comm_mode 변경 시 자동 전환 */
+#endif
       osDelay(100);
   }
   /* USER CODE END StartModeTask */

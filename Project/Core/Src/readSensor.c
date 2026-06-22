@@ -10,7 +10,7 @@
     Include Files
 ****************************************************************/
 #include "readSensor.h"
-#include "can_comm.h"
+#include "comm_can.h"
 #include "bt_comm.h"
 #include "mpu6050.h"
 
@@ -39,7 +39,7 @@ extern TIM_HandleTypeDef  htim3;
 
 /****************************************************************
     로컬 상태 변수 정의
-    — can_comm.c Pack 함수가 extern으로 읽어서 CAN 송신에 사용
+    — comm_can_controller/robot TX 함수가 extern으로 읽어서 CAN 송신에 사용
 ****************************************************************/
 #if (!ProjModeState)             // 리모콘 전용
 uint8_t localSensorStatus = 0;   // bit0=bending0, bit1=bending1, bit2=gyro 이상
