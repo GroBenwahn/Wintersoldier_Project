@@ -268,7 +268,7 @@ int main(void)
   CAN_QueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &CAN_Queue_attributes);
 
   /* creation of BT_Queue */
-  BT_QueueHandle = osMessageQueueNew(16, sizeof(BT_Packet_t), &BT_Queue_attributes);
+  BT_QueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &BT_Queue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -741,7 +741,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -819,9 +819,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Gyro_Sensor_INT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : GPIO_Input_Switch_Pin (PB4 — PULLUP, 누르면 FALLING) */
+  /*Configure GPIO pin : GPIO_Input_Switch_Pin */
   GPIO_InitStruct.Pin = GPIO_Input_Switch_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIO_Input_Switch_GPIO_Port, &GPIO_InitStruct);
 
@@ -832,11 +832,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIO_Relay_Output_GPIO_Port, &GPIO_InitStruct);
 
-  /* EXTI interrupt init */
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);   // PA7 (Gyro INT)
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);     // PB4 (Switch)
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -878,7 +876,7 @@ void StartDefaultTask(void *argument)
 /* USER CODE END Header_StartCommTask */
 void StartCommTask(void *argument)
 {
-    /* USER CODE BEGIN StartCommTask */
+  /* USER CODE BEGIN StartCommTask */
     uint8_t cnt100ms = 0;
 
     for(;;)
@@ -930,9 +928,8 @@ void StartCommTask(void *argument)
 #endif
         }
     }
-    /* USER CODE END StartCommTask */
+  /* USER CODE END StartCommTask */
 }
-
 
 /* USER CODE BEGIN Header_StartServoTask */
 /**
@@ -997,9 +994,9 @@ void StartModeTask(void *argument)
 /* TimerOnce_Callback function */
 void TimerOnce_Callback(void *argument)
 {
-    /* USER CODE BEGIN TimerOnce_Callback */
+  /* USER CODE BEGIN TimerOnce_Callback */
     CommPowerSelect_DebounceExpired();
-    /* USER CODE END TimerOnce_Callback */
+  /* USER CODE END TimerOnce_Callback */
 }
 
 /* Timer10ms_Callback function */
@@ -1061,7 +1058,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 /**
   * @}
   */
-
 
 /**
   * @}
