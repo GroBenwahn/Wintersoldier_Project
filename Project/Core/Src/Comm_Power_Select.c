@@ -1,91 +1,65 @@
 /*
-  Comm_Power_Select.c
+  Comm_Power_Select.c  (릴레이 없음 — 소프트웨어 전환)
 
   동작 요약
-    버튼(PB4, PULLUP) 누름
-      → EXTI ISR → CommPowerSelect_ButtonPressed() → TimerOnce 50ms 원샷 시작
-      → TimerOnce_Callback → CommPowerSelect_DebounceExpired() → 레벨 재확인 후 토글
+    1. 전원 인가 → BT 모드 (기본값) : HC-05/06 자동 연결
+    2. 버튼 1회  → BT 차단, CAN 시작
+    3. 버튼 2회  → CAN 차단, BT 재시작 : HC-05/06 자동 재연결
 
   토글 상태 (g_comm_toggle)
-    홀수(1) : 릴레이 ON  (GPIO HIGH) → BT 모듈 전원 공급  → COMM_MODE_BT
-    짝수(0) : 릴레이 OFF (GPIO LOW)  → CAN 트랜시버 전원  → COMM_MODE_CAN
-
-  SPDT 릴레이 배선
-    GPIO_Relay_Output = HIGH → COM-NO 연결 → BT 모듈 전원
-    GPIO_Relay_Output = LOW  → COM-NC 연결 → CAN 트랜시버 전원
-    (반대 배선 시 RELAY_BT_STATE / RELAY_CAN_STATE 값만 교체)
+    1 : BT 모드  → UART 수신 활성,  CAN 중지
+    0 : CAN 모드 → UART 수신 중지,  CAN 활성
  */
 
 #include "Comm_Power_Select.h"
 #include "bt_comm.h"
 #include "comm_can.h"
-#include "timers.h"   /* xTimerStartFromISR — ISR 안전 타이머 API */
+#include "timers.h"
 
-/* ── 릴레이 출력 레벨 정의 (배선에 따라 조정) ── */
-#define RELAY_BT_STATE   GPIO_PIN_SET    /* 릴레이 ON  → BT 전원  */
-#define RELAY_CAN_STATE  GPIO_PIN_RESET  /* 릴레이 OFF → CAN 전원 */
-
-/* ── 타이밍 정의 ─────────────────────────────── */
-#define DEBOUNCE_MS   50    /* 디바운스 대기 시간 */
-#define BT_BOOT_MS   100   /* HC-06 전원 인가 후 안정화 대기 */
-#define CAN_BOOT_MS   50   /* CAN 트랜시버 안정화 대기 */
-
+extern UART_HandleTypeDef  huart1;
+extern FDCAN_HandleTypeDef hfdcan1;
 
 /* ── 내부 변수 ─────────────────────────────────── */
-static volatile uint8_t g_comm_toggle        = 1;   /* 0=CAN, 1=BT */
-static volatile uint8_t g_debounce_busy      = 0;   /* 디바운스 진행 중 플래그 */
-static volatile uint8_t g_mode_change_pending = 0;  /* Mode_Task가 처리할 전환 요청 */
+static volatile uint8_t g_comm_toggle         = 1;
+static volatile uint8_t g_debounce_busy       = 0;
+static volatile uint8_t g_mode_change_pending = 0;
 
-/* TimerOnce 핸들 — main.c 정의 */
 extern osTimerId_t TimerOnceHandle;
 
-CommMode currentCommMode  = COMM_MODE_IDLE;
+CommMode currentCommMode   = COMM_MODE_IDLE;
 uint8_t  localSwitchStatus = 1;
+
 /* ── 내부 헬퍼 ─────────────────────────────────── */
 
 static void apply_bt_mode(void)
 {
-    /* 1. 릴레이 ON → BT 모듈 전원 인가 */
-    HAL_GPIO_WritePin(GPIO_Relay_Output_GPIO_Port,
-                      GPIO_Relay_Output_Pin,
-                      RELAY_BT_STATE);
+    /* 1. CAN 중지 */
+    HAL_FDCAN_Stop(&hfdcan1);
 
-    /* 2. HC-06 부팅 안정화 대기 (init/callback 양쪽에서 호출되므로 HAL_Delay 사용) */
-    HAL_Delay(BT_BOOT_MS);
-
-    /* 3. UART 수신 인터럽트 시작 */
+    /* 2. BT UART 수신 시작 → HC-05 자동 연결 */
     BT_Init();
 
-    /* 4. 모드 확정 */
-    localSwitchStatus = 1;   /* 1 = BT 모드 */
-    currentCommMode = COMM_MODE_BT;
+    /* 3. 모드 확정 */
+    localSwitchStatus = 1;
+    currentCommMode   = COMM_MODE_BT;
 }
 
 static void apply_can_mode(void)
 {
-    /* 1. 릴레이 OFF → CAN 트랜시버 전원 인가 */
-    HAL_GPIO_WritePin(GPIO_Relay_Output_GPIO_Port,
-                      GPIO_Relay_Output_Pin,
-                      RELAY_CAN_STATE);
+    /* 1. BT UART 수신 중지 + 연결 상태 초기화 */
+    HAL_UART_Abort(&huart1);
+    g_bt_conn_state = BT_STATE_DISCONNECTED;
 
-    /* 2. 트랜시버 안정화 대기 (init/callback 양쪽에서 호출되므로 HAL_Delay 사용) */
-    HAL_Delay(CAN_BOOT_MS);
-
-    /* 3. FDCAN 시작 (MX_FDCAN1_Init은 main에서 완료됨) */
+    /* 2. CAN 시작 */
     CAN_Start();
 
-    /* 4. 모드 확정 */
-    localSwitchStatus = 0;   /* 0 = CAN 모드 */
-    currentCommMode = COMM_MODE_CAN;
+    /* 3. 모드 확정 */
+    localSwitchStatus = 0;
+    currentCommMode   = COMM_MODE_CAN;
 }
 
 /* ── 공개 API ──────────────────────────────────── */
 
-/*
-  @brief 시스템 시작 시 초기 상태 설정
-        기본값: BT 모드 (릴레이 ON)
-        main.c의 USER CODE BEGIN 2 에서 호출
- */
 void CommPowerSelect_Init(void)
 {
     g_comm_toggle   = 1;
@@ -93,53 +67,29 @@ void CommPowerSelect_Init(void)
     apply_bt_mode();
 }
 
-/*
- * @brief EXTI ISR에서 버튼 엣지 감지 시 호출
- *        디바운스 타이머(TimerOnce) 50ms 원샷 시작
- *
- * 호출 위치 (stm32g4xx_it.c 또는 main.c USER CODE BEGIN 4):
- *   void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
- *       if (GPIO_Pin == GPIO_Input_Switch_Pin)
- *           CommPowerSelect_ButtonPressed();
- *   }
- */
 void CommPowerSelect_ButtonPressed(void)
 {
-    if (g_debounce_busy) return;   /* 디바운스 진행 중이면 무시 */
+    if (g_debounce_busy) return;
 
     g_debounce_busy = 1;
 
-    /* ISR 컨텍스트에서 호출되므로 ISR 전용 API 사용
-       osTimerStart()는 ISR에서 호출 불가 → xTimerStartFromISR() 사용 */
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xTimerStartFromISR(TimerOnceHandle, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-/**
- * @brief TimerOnce_Callback에서 50ms 만료 시 호출
- *        실제 핀 레벨 재확인 후 유효한 누름이면 토글 수행
- *
- * 호출 위치 (main.c):
- *   void TimerOnce_Callback(void *argument) {
- *       CommPowerSelect_DebounceExpired();
- *   }
- */
 void CommPowerSelect_DebounceExpired(void)
 {
-    /* 실제 핀 레벨 재확인 (PULLUP → 눌리면 LOW) */
     if (HAL_GPIO_ReadPin(GPIO_Input_Switch_GPIO_Port,
                          GPIO_Input_Switch_Pin) == GPIO_PIN_RESET)
     {
         g_comm_toggle ^= 1;
-        currentCommMode = COMM_MODE_IDLE;
-        g_mode_change_pending = 1;   /* 실제 전환은 Mode_Task에서 처리 */
+        currentCommMode       = COMM_MODE_IDLE;
+        g_mode_change_pending = 1;
     }
-
     g_debounce_busy = 0;
 }
 
-/* Mode_Task 100ms 루프에서 호출 — 실제 릴레이 전환 및 초기화 수행 */
 void CommPowerSelect_Apply(void)
 {
     if (!g_mode_change_pending) return;

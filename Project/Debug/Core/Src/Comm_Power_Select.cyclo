@@ -1,6 +1,6 @@
-../Core/Src/Comm_Power_Select.c:46:13:apply_bt_mode	1
-../Core/Src/Comm_Power_Select.c:64:13:apply_can_mode	1
-../Core/Src/Comm_Power_Select.c:89:6:CommPowerSelect_Init	1
-../Core/Src/Comm_Power_Select.c:106:6:CommPowerSelect_ButtonPressed	3
-../Core/Src/Comm_Power_Select.c:128:6:CommPowerSelect_DebounceExpired	2
-../Core/Src/Comm_Power_Select.c:143:6:CommPowerSelect_Apply	3
+../Core/Src/Comm_Power_Select.c:34:13:apply_bt_mode	1
+../Core/Src/Comm_Power_Select.c:47:13:apply_can_mode	1
+../Core/Src/Comm_Power_Select.c:63:6:CommPowerSelect_Init	1
+../Core/Src/Comm_Power_Select.c:70:6:CommPowerSelect_ButtonPressed	3
+../Core/Src/Comm_Power_Select.c:81:6:CommPowerSelect_DebounceExpired	2
+../Core/Src/Comm_Power_Select.c:93:6:CommPowerSelect_Apply	3
