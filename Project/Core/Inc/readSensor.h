@@ -34,7 +34,7 @@ void ReadSensor_Update_100ms(void);   // Timer100ms 콜백에서 호출
 /* ── 리모콘 전용 ─────────────────────────────────────────── */
 #if (!ProjModeState)
 void Read_BendingSensor(void);   // ADC DMA → remoteSensorTx.bendingSensor[]
-void Read_GyroSensor(void);      // I2C MPU6050 → remoteSensorTx.gyro_pitch/roll
+void Read_GyroSensor(void);      // I2C ADXL345 → remoteSensorTx.gyro_pitch/roll
 void Read_SwitchRelay(void);     // GPIO → localSwitchStatus / localRelayStatus
 #endif
 

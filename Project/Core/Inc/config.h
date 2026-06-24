@@ -16,7 +16,7 @@
 ****************************************************************/
 #define PROJ_MODE_ROBOT_ARM  1
 #define PROJ_MODE_REMOTE     0
-#define ProjModeState        1
+#define ProjModeState        0
 
 /****************************************************************
     열거형 정의

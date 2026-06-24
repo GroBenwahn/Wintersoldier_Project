@@ -31,13 +31,33 @@ uint8_t  localSwitchStatus = 1;
 
 /* ── 내부 헬퍼 ─────────────────────────────────── */
 
+/*
+ * HAL_UART_Abort 사용 금지
+ *   huart1 DMA 연결 상태에서 Abort 호출 시
+ *   DMA1_Channel2_IRQHandler → HAL_DMA_IRQHandler → HardFault 발생.
+ *   UART RX 중단은 IT 비트 직접 클리어로 대체.
+ *
+ * BT_Init() 호출 시 NVIC 마스킹 필요
+ *   ADC DMA(DMA1_CH2)가 실행 중일 때 HAL_UART_Receive_IT의
+ *   ATOMIC_SET_BIT(LDREX/STREX)가 인터럽트와 충돌해 무한루프 발생.
+ */
+static void uart_rx_stop(void)
+{
+    __HAL_UART_DISABLE_IT(&huart1, UART_IT_RXNE);
+    __HAL_UART_DISABLE_IT(&huart1, UART_IT_PE);
+    __HAL_UART_DISABLE_IT(&huart1, UART_IT_ERR);
+    huart1.RxState = HAL_UART_STATE_READY;
+}
+
 static void apply_bt_mode(void)
 {
     /* 1. CAN 중지 */
     HAL_FDCAN_Stop(&hfdcan1);
 
-    /* 2. BT UART 수신 시작 → HC-05 자동 연결 */
+    /* 2. BT UART 수신 시작 (ADC DMA 인터럽트 마스킹 후 호출) */
+    HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);
     BT_Init();
+    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
     /* 3. 모드 확정 */
     localSwitchStatus = 1;
@@ -47,7 +67,7 @@ static void apply_bt_mode(void)
 static void apply_can_mode(void)
 {
     /* 1. BT UART 수신 중지 + 연결 상태 초기화 */
-    HAL_UART_Abort(&huart1);
+    uart_rx_stop();
     g_bt_conn_state = BT_STATE_DISCONNECTED;
 
     /* 2. CAN 시작 */

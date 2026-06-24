@@ -210,8 +210,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  ReadSensor_Init();      // ADC DMA 시작, MPU6050 초기화
-
   /* ── 통신 초기화: 아래 둘 중 하나만 활성화 ──────────────
      [실사용]  릴레이 하드웨어 연결 시
                CommPowerSelect_Init();
@@ -224,6 +222,8 @@ int main(void)
 #else
   CommPowerSelect_Init();
 #endif
+
+  ReadSensor_Init();      // ADC DMA 시작, 센서 초기화 (통신 초기화 완료 후 마지막)
   /* USER CODE END 2 */
 
   /* Init scheduler */

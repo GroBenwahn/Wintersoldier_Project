@@ -11,7 +11,7 @@
 ../Core/Src/main.c:801:13:MX_GPIO_Init	1
 ../Core/Src/main.c:845:6:HAL_GPIO_EXTI_Callback	2
 ../Core/Src/main.c:859:6:StartDefaultTask	1
-../Core/Src/main.c:877:6:StartCommTask	6
+../Core/Src/main.c:877:6:StartCommTask	5
 ../Core/Src/main.c:941:6:StartServoTask	1
 ../Core/Src/main.c:959:6:StartLCDTask04	1
 ../Core/Src/main.c:977:6:StartModeTask	1
