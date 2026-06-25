@@ -1,0 +1,2 @@
+../Core/Src/debug_comm_select.c:25:6:Debug_CommSelect_Init	1
+../Core/Src/debug_comm_select.c:40:6:Debug_CommSelect_Apply	9

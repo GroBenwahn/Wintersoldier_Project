@@ -1,4 +1,4 @@
-../Core/Src/debug_comm.c:27:20:_uart_rx_stop	1
-../Core/Src/debug_comm.c:56:20:_bt_init_safe	1
-../Core/Src/debug_comm.c:63:6:Debug_Comm_Init	3
-../Core/Src/debug_comm.c:107:6:Debug_Comm_Poll	5
+../Core/Src/debug_comm.c:28:20:_uart_rx_stop	1
+../Core/Src/debug_comm.c:57:20:_bt_init_safe	1
+../Core/Src/debug_comm.c:66:6:Debug_Comm_Init	3
+../Core/Src/debug_comm.c:110:6:Debug_Comm_Poll	7

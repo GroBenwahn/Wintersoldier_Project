@@ -1,6 +1,6 @@
-../Core/Src/readSensor.c:59:6:ReadSensor_Init	1
-../Core/Src/readSensor.c:70:6:ReadSensor_Update_10ms	1
-../Core/Src/readSensor.c:85:6:ReadSensor_Update_100ms	1
-../Core/Src/readSensor.c:105:6:Read_BendingSensor	5
-../Core/Src/readSensor.c:127:6:Read_GyroSensor	2
-../Core/Src/readSensor.c:145:6:Read_SwitchRelay	1
+../Core/Src/readSensor.c:60:6:ReadSensor_Init	1
+../Core/Src/readSensor.c:86:6:ReadSensor_Update_10ms	1
+../Core/Src/readSensor.c:101:6:ReadSensor_Update_100ms	1
+../Core/Src/readSensor.c:175:6:Read_SwitchRelay	1
+../Core/Src/readSensor.c:195:6:Read_MotorStatus	1
+../Core/Src/readSensor.c:208:6:Read_LCDStatus	1

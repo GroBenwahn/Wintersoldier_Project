@@ -26,6 +26,10 @@ typedef struct {
  * ──────────────────────────────────────────────────── */
 #define BT_ID_REMOTE_SENSOR   0x10    /* 10ms: 굽힘센서 + 자이로 */
 
+/* ── 진단 변수 (Live Expression) ──────────────────────
+ *   DIAG_bt_state: 0=DISCONNECTED  1=CONNECTING  2=CONNECTED */
+extern volatile uint8_t DIAG_bt_state;
+
 /* ── API ─────────────────────────────────────────────*/
 void    BT_Init(void);
 void    BT_Pack_And_Send(uint8_t id, const uint8_t *data, uint8_t len);

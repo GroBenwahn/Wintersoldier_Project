@@ -12,6 +12,7 @@
 
 #include "debug_comm.h"
 #include "comm_can.h"
+#include "comm_can_controller.h"
 #include "bt_comm.h"
 
 #if (DEBUG_COMM_ENABLE)
@@ -55,9 +56,11 @@ static inline void _uart_rx_stop(void)
  * BT_Init 구간만 해당 IRQ를 마스킹해 해결한다. */
 static inline void _bt_init_safe(void)
 {
+    /* ReadSensor_Init에서 DMA1_Channel2_IRQn을 영구 비활성화했으므로
+     * DisableIRQ는 no-op. EnableIRQ 호출 생략 — 재활성화하면
+     * ADC DMA IRQ가 FreeRTOS tick을 다시 선점하게 됨.         */
     HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);
     BT_Init();
-    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 }
 
 void Debug_Comm_Init(void)
@@ -124,12 +127,19 @@ void Debug_Comm_Poll(void)
     currentCommMode = COMM_MODE_IDLE;
 
     if (g_debug_comm_mode == COMM_MODE_CAN) {
-        /* BT → CAN */
+        /* BT → CAN
+         * BT→CAN 경로에서 HAL_FDCAN_Stop 금지:
+         *   CAN→BT 전환 시 이미 Stop됨. 재호출 시 HAL_ERROR +
+         *   hfdcan1.ErrorCode 오류 플래그 누적 → CAN_Start 불안정.     */
         g_debug_poll_state = 4;
         g_debug_bt_step = 1;
         _uart_rx_stop();
         g_debug_bt_step = 2;
-        HAL_FDCAN_Stop(&hfdcan1);
+        /* FDCAN이 실행 중일 때만 Stop (이미 정지 상태면 건너뜀) */
+        if (HAL_FDCAN_GetState(&hfdcan1) == HAL_FDCAN_STATE_BUSY) {
+            HAL_FDCAN_Stop(&hfdcan1);
+        }
+        hfdcan1.ErrorCode = 0U;   /* 누적 에러코드 초기화 후 Start */
         g_debug_bt_step = 3;
         CAN_Start();
         g_debug_bt_step = 4;
@@ -141,7 +151,16 @@ void Debug_Comm_Poll(void)
         /* CAN → BT */
         g_debug_poll_state = 3;
         g_debug_bt_step = 1;
-        HAL_FDCAN_Stop(&hfdcan1);
+        if (HAL_FDCAN_GetState(&hfdcan1) == HAL_FDCAN_STATE_BUSY) {
+            /* CAN 중단 전 마지막 0x101 패킷: 로봇팔에 BT 전환 통보.
+             * HAL_FDCAN_Stop()이 TX FIFO를 즉시 취소하므로
+             * 5ms 대기 후 Stop — 500kbps 기준 1프레임 ≈ 180μs로 충분 */
+#if (!ProjModeState)
+            Controller_CAN_TX_Status_Forced(COMM_MODE_BT);
+            HAL_Delay(5);
+#endif
+            HAL_FDCAN_Stop(&hfdcan1);
+        }
         g_debug_bt_step = 2;
         _uart_rx_stop();
         g_debug_bt_step = 3;

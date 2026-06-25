@@ -73,10 +73,13 @@ HAL_StatusTypeDef ADXL345_GetAngle(I2C_HandleTypeDef *hi2c,
 {
     uint8_t buf[6];
 
-    /* 0x32부터 6바이트 연속 읽기: X0 X1 Y0 Y1 Z0 Z1 */
+    /* 0x32부터 6바이트 연속 읽기: X0 X1 Y0 Y1 Z0 Z1
+     * 타임아웃 3ms: 100kHz I2C 기준 6byte ≈ 1ms, 400kHz ≈ 0.25ms.
+     * 20ms 시 CommTask 주기(10ms)를 초과 → CAN_SemHandle 누적 →
+     * CommTask CPU 독점 → Mode Task 1초 주기로 굶주림(starvation).  */
     if (HAL_I2C_Mem_Read(hi2c, ADXL345_ADDR,
                          ADXL345_REG_DATA_X0, I2C_MEMADD_SIZE_8BIT,
-                         buf, 6, 20) != HAL_OK) return HAL_ERROR;
+                         buf, 6, 3) != HAL_OK) return HAL_ERROR;
 
     /* Little-Endian: LSB(buf[0]) + MSB(buf[1]) */
     int16_t xr = (int16_t)((buf[1] << 8) | buf[0]);

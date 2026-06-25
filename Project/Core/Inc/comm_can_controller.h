@@ -14,6 +14,7 @@
 
 void Controller_CAN_TX_Sensor(void);        /* remoteSensorTx → TX 0x100 (10ms)  */
 void Controller_CAN_TX_Status(void);        /* 상태 정보      → TX 0x101 (100ms) */
+void Controller_CAN_TX_Status_Forced(CommMode mode);  /* CAN→BT 전환 직전 강제 CommMode 지정 TX */
 void Controller_CAN_RX_Handle(uint32_t id, uint8_t *data);  /* 0x202 수신 → sysStatus */
 
 #endif /* !ProjModeState */

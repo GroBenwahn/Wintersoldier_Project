@@ -16,7 +16,8 @@
     — 이 보드 자신의 상태값 (comm_can_controller/robot TX 함수가 읽어감)
 ****************************************************************/
 #if (!ProjModeState)                // 리모콘 전용
-extern uint8_t localSensorStatus;   // bit0=bending0, bit1=bending1, bit2=gyro 이상
+extern uint8_t          localSensorStatus;   // bit0=bending0, bit1=bending1, bit2=gyro 이상
+extern volatile uint8_t DIAG_adxl_init;      /* 0=Standby(초기화실패), 1=Measure모드 */
 #endif
 #if (ProjModeState)                 // 로봇팔 전용
 extern uint8_t localLcdStatus;      // 0=정상, 1=이상

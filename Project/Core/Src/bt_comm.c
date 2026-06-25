@@ -23,6 +23,10 @@
 volatile BT_ConnState_t g_bt_conn_state = BT_STATE_DISCONNECTED;
 static   uint32_t       g_last_rx_tick  = 0;
 
+/* ── 진단 변수 (Live Expression: DIAG_bt_state) ─────────
+ *   0 = DISCONNECTED  1 = CONNECTING  2 = CONNECTED      */
+volatile uint8_t DIAG_bt_state = 0;
+
 /* ── RX 단일 바이트 버퍼 (HAL IT용) ────────────────── */
 static uint8_t g_rx_byte;
 
@@ -109,6 +113,7 @@ static void parse_byte(uint8_t byte)
                     /* 연결 감지 — 첫 수신 시 CONNECTED */
                     g_last_rx_tick  = HAL_GetTick();
                     g_bt_conn_state = BT_STATE_CONNECTED;
+                    DIAG_bt_state   = 2;
                 }
             }
             parser_reset();   /* 성공/실패 무관하게 리셋 */
@@ -128,6 +133,8 @@ void BT_Init(void)
     g_pkt_ready     = 0;
     g_last_rx_tick  = 0;
     g_bt_conn_state = BT_STATE_CONNECTING;
+
+    DIAG_bt_state = 1;   /* CONNECTING */
 
     /* 1바이트 단위 수신 인터럽트 시작 */
     HAL_UART_Receive_IT(&huart1, &g_rx_byte, 1);
@@ -154,10 +161,22 @@ void BT_Pack_And_Send(uint8_t id, const uint8_t *data, uint8_t len)
     pkt.checksum = calc_checksum(&pkt);
     pkt.eof      = BT_EOF;
 
-    HAL_UART_Transmit(&huart1,
-                      (uint8_t *)&pkt,
-                      BT_FRAME_SIZE,
-                      BT_TX_TIMEOUT_MS);
+    /* HAL_UART_Transmit() 대신 직접 레지스터 TX:
+     * HAL 블로킹 TX 는 huart->Lock 점유 (~1.1ms).
+     * 이 구간에 UART RX ISR 가 HAL_UART_Receive_IT() 재등록 시도 →
+     * __HAL_LOCK() 충돌 → HAL_BUSY → RX IT 재등록 실패 → RX 영구 중단.
+     * Lock 을 사용하지 않는 직접 레지스터 TX 로 회피.              */
+    const uint8_t *p  = (const uint8_t *)&pkt;
+    uint32_t       t0 = HAL_GetTick();
+    for (uint16_t i = 0; i < BT_FRAME_SIZE; i++) {
+        while (!__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TXE)) {
+            if ((HAL_GetTick() - t0) >= BT_TX_TIMEOUT_MS) return;
+        }
+        huart1.Instance->TDR = p[i];
+    }
+    while (!__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TC)) {
+        if ((HAL_GetTick() - t0) >= (uint32_t)(BT_TX_TIMEOUT_MS + 2U)) return;
+    }
 }
 
 /**
@@ -196,6 +215,7 @@ void BT_ConnectionMonitor_100ms(void)
 
     if ((HAL_GetTick() - g_last_rx_tick) >= BT_CONN_TIMEOUT_MS) {
         g_bt_conn_state = BT_STATE_DISCONNECTED;
+        DIAG_bt_state   = 0;
         /* BT 모드 유지 — 버튼으로만 전환 가능 */
     }
 }

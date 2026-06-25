@@ -34,11 +34,17 @@ void Controller_CAN_TX_Sensor(void)
 ****************************************************************/
 void Controller_CAN_TX_Status(void)
 {
+    Controller_CAN_TX_Status_Forced(currentCommMode);
+}
+
+/* CAN→BT 전환 시, CAN 중단 전에 명시적 CommMode를 담아 마지막 0x101 패킷 송신 */
+void Controller_CAN_TX_Status_Forced(CommMode mode)
+{
     uint8_t packed = (localSensorStatus & 0x07)        |
                      ((localSwitchStatus & 0x01) << 3) |
                      ((localRelayStatus  & 0x01) << 4);
 
-    RemoteCanMsg.REMOTE_STATUS.BIT_FIELD.RemoteCommStatus   = (uint8_t)currentCommMode;
+    RemoteCanMsg.REMOTE_STATUS.BIT_FIELD.RemoteCommStatus   = (uint8_t)mode;
     RemoteCanMsg.REMOTE_STATUS.BIT_FIELD._reserved0         = 0;
     RemoteCanMsg.REMOTE_STATUS.BIT_FIELD.RemoteSensorStatus = packed;
     RemoteCanMsg.REMOTE_STATUS.BIT_FIELD._reserved1         = 0;

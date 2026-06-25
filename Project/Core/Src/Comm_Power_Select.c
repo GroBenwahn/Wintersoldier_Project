@@ -14,6 +14,7 @@
 #include "Comm_Power_Select.h"
 #include "bt_comm.h"
 #include "comm_can.h"
+#include "comm_can_controller.h"
 #include "timers.h"
 
 extern UART_HandleTypeDef  huart1;
@@ -51,13 +52,20 @@ static void uart_rx_stop(void)
 
 static void apply_bt_mode(void)
 {
-    /* 1. CAN 중지 */
-    HAL_FDCAN_Stop(&hfdcan1);
+    /* 1. CAN이 실행 중이면 마지막 0x101 패킷으로 BT 전환 통보 후 중단 */
+    if (HAL_FDCAN_GetState(&hfdcan1) == HAL_FDCAN_STATE_BUSY) {
+#if (!ProjModeState)
+        Controller_CAN_TX_Status_Forced(COMM_MODE_BT);
+        HAL_Delay(5);
+#endif
+        HAL_FDCAN_Stop(&hfdcan1);
+    }
 
-    /* 2. BT UART 수신 시작 (ADC DMA 인터럽트 마스킹 후 호출) */
+    /* 2. BT UART 수신 시작
+     * EnableIRQ 호출 금지 — ReadSensor_Init에서 DMA1_CH2 IRQ를 영구 비활성화했으므로
+     * 재활성화하면 ADC DMA IRQ가 FreeRTOS tick을 다시 선점하게 됨.         */
     HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);
     BT_Init();
-    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
     /* 3. 모드 확정 */
     localSwitchStatus = 1;

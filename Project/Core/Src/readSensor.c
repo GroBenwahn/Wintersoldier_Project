@@ -43,6 +43,7 @@ extern TIM_HandleTypeDef  htim3;
 ****************************************************************/
 #if (!ProjModeState)             // 리모콘 전용
 uint8_t localSensorStatus = 0;   // bit0=bending0, bit1=bending1, bit2=gyro 이상
+volatile uint8_t DIAG_adxl_init = 0;   /* Live Expression: 0=init실패(Standby), 1=정상 */
 #endif
 
 #if (ProjModeState)              // 로봇팔 전용
@@ -59,7 +60,22 @@ uint8_t localRelayStatus  = 0;
 void ReadSensor_Init(void) {
 #if (!ProjModeState)
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcBuffer, 2);
-    ADXL345_Init(&hi2c1);
+    /* ADC DMA는 adcBuffer를 폴링으로 읽으므로 완료 IRQ 불필요.
+     * DMA1_CH2 IRQ(우선순위 5)가 2.82μs마다 발생하면 SysTick(우선순위 15)을
+     * 선점해 FreeRTOS tick이 지연되므로 영구적으로 비활성화한다.          */
+    HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);
+
+    /* ADXL345 초기화 — I2C 버스 안정화 후 최대 3회 재시도
+     * 실패 시 POWER_CTL 미설정 → Standby 모드 → GetAngle이 항상 0 반환
+     * DIAG_adxl_init: 0=실패(Standby), 1=정상(Measure 모드)               */
+    HAL_Delay(10);   /* 전원 인가 후 ADXL345 안정화 대기 (~1.1ms 필요) */
+    for (uint8_t i = 0; i < 3; i++) {
+        if (ADXL345_Init(&hi2c1) == HAL_OK) {
+            DIAG_adxl_init = 1;
+            break;
+        }
+        HAL_Delay(20);
+    }
 #endif
 }
 
@@ -125,13 +141,27 @@ void Read_BendingSensor(void) {
     Description: MPU6050 I2C → remoteSensorTx 업데이트
 ****************************************************************/
 void Read_GyroSensor(void) {
+    /* init 실패 상태(Standby)면 주기적으로 재시도 (1초 = 100 × 10ms) */
+    if (DIAG_adxl_init == 0) {
+        static uint8_t reinit_cnt = 0;
+        if (++reinit_cnt >= 100) {
+            reinit_cnt = 0;
+            if (ADXL345_Init(&hi2c1) == HAL_OK) {
+                DIAG_adxl_init = 1;
+            }
+        }
+        localSensorStatus |= (1 << 2);
+        return;
+    }
+
     HAL_StatusTypeDef ret = ADXL345_GetAngle(&hi2c1,
                                               &remoteSensorTx.gyro_pitch,
                                               &remoteSensorTx.gyro_roll);
-    if(ret != HAL_OK) {
-        localSensorStatus |=  (1 << 2);   // gyro 오류
+    if (ret != HAL_OK) {
+        localSensorStatus |=  (1 << 2);
+        DIAG_adxl_init = 0;   /* I2C 에러 → 다음 주기에 재초기화 시도 */
     } else {
-        localSensorStatus &= ~(1 << 2);   // 정상
+        localSensorStatus &= ~(1 << 2);
     }
 }
 #endif  // !ProjModeState

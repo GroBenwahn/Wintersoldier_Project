@@ -28,7 +28,8 @@
 #include "readSensor.h"
 #include "bt_comm.h"
 #include "Comm_Power_Select.h"
-#include "debug_comm.h"     /* 릴레이 없이 CAN/BT 테스트 시 사용 (DEBUG_COMM_ENABLE 참고) */
+#include "debug_comm.h"          /* 릴레이 없이 CAN/BT 테스트 시 사용 (DEBUG_COMM_ENABLE 참고) */
+#include "debug_comm_select.h"   /* debug_comm + 물리 버튼 폴링(PB4) 통합 버전 */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -210,15 +211,17 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  /* ── 통신 초기화: 아래 둘 중 하나만 활성화 ──────────────
-     [실사용]  릴레이 하드웨어 연결 시
-               CommPowerSelect_Init();
-     [디버그]  릴레이 없이 CAN/BT 직접 테스트 시
-               debug_comm.h에서 DEBUG_COMM_MODE 설정 후 사용
-               Debug_Comm_Init();
+  /* ── 통신 초기화: 아래 셋 중 하나만 활성화 ──────────────
+     [실사용]         릴레이 하드웨어 연결 시
+                       CommPowerSelect_Init();
+     [디버그-LiveExp]  릴레이 없이 CAN/BT 직접 테스트 (Live Expression 전환)
+                       debug_comm.h에서 DEBUG_COMM_ENABLE=1, MODE 설정
+                       Debug_Comm_Init();
+     [디버그-버튼]     위와 동일 + PB4 물리 버튼으로도 CAN↔BT 토글 가능
+                       Debug_CommSelect_Init();
      ──────────────────────────────────────────────────── */
 #if (DEBUG_COMM_ENABLE)
-  Debug_Comm_Init();
+  Debug_CommSelect_Init();
 #else
   CommPowerSelect_Init();
 #endif
@@ -741,7 +744,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -873,6 +876,15 @@ void StartDefaultTask(void *argument)
 * @param argument: Not used
 * @retval None
 */
+
+/* Live Expression 진단 변수 */
+volatile uint32_t DIAG_mode_task_cnt  = 0;  /* Mode_Task 루프 횟수 */
+volatile uint32_t DIAG_ts_mode        = 0;  /* Mode_Task 루프 진입 HAL_GetTick() */
+volatile uint32_t DIAG_timer10_cnt    = 0;  /* Timer10ms 실제 호출 횟수 */
+volatile uint32_t DIAG_comm_task_cnt  = 0;  /* CommTask 루프 횟수 (BT 전환 후 동결 확인) */
+volatile uint32_t DIAG_stack_comm     = 0xFFFF;  /* CommTask 최소 여유 스택(words) — 0이면 오버플로 */
+volatile uint32_t DIAG_stack_mode     = 0xFFFF;  /* Mode_Task 최소 여유 스택(words) */
+
 /* USER CODE END Header_StartCommTask */
 void StartCommTask(void *argument)
 {
@@ -883,6 +895,8 @@ void StartCommTask(void *argument)
     {
         /* 10ms마다 Timer10ms_Callback이 release */
         osSemaphoreAcquire(CAN_SemHandle, osWaitForever);
+        DIAG_comm_task_cnt++;
+        DIAG_stack_comm = uxTaskGetStackHighWaterMark(NULL);
 
         /* ── 10ms: 센서 읽기 (항상 실행) ──────────────────── */
         ReadSensor_Update_10ms();
@@ -974,17 +988,22 @@ void StartLCDTask04(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartModeTask */
+
 void StartModeTask(void *argument)
 {
   /* USER CODE BEGIN StartModeTask */
   /* Infinite loop */
   for(;;)
   {
-      CommPowerSelect_Apply();          /* 버튼 전환 요청 처리 */
-      ReadSensor_Update_100ms();        /* 릴레이/센서 상태 갱신 */
-      BT_ConnectionMonitor_100ms();     /* BT 수신 타임아웃 감지 */
+      DIAG_ts_mode = HAL_GetTick();     /* 루프 진입 시각 — 연속 차이값으로 실제 주기 측정 */
+      DIAG_mode_task_cnt++;
+      DIAG_stack_mode = uxTaskGetStackHighWaterMark(NULL);
+      ReadSensor_Update_100ms();
+      BT_ConnectionMonitor_100ms();
 #if (DEBUG_COMM_ENABLE)
-      Debug_Comm_Poll();                /* Live Expression에서 g_debug_comm_mode 변경 시 자동 전환 */
+      Debug_CommSelect_Apply();
+#else
+      CommPowerSelect_Apply();
 #endif
       osDelay(100);
   }
@@ -1003,6 +1022,7 @@ void TimerOnce_Callback(void *argument)
 void Timer10ms_Callback(void *argument)
 {
   /* USER CODE BEGIN Timer10ms_Callback */
+  DIAG_timer10_cnt++;
   osSemaphoreRelease(CAN_SemHandle);
   /* USER CODE END Timer10ms_Callback */
 }
