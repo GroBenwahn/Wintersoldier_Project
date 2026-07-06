@@ -1,4 +1,5 @@
 #include "can_comm.h"
+#include "cmsis_os.h"
 
 #define CAN_RECOVERY_INTERVAL_MS  2000
 
@@ -64,7 +65,7 @@ void CAN_Recovery(void)
     uint8_t probe[8] = {0};
     tx_header.Identifier = CAN_MSG_ID_SENSOR;
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, probe);
-    HAL_Delay(5);
+    osDelay(5);
     HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
 
     if (status.TxErrorCnt == 0)
