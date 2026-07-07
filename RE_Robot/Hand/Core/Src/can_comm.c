@@ -3,7 +3,7 @@
 
 #define CAN_RECOVERY_INTERVAL_MS  2000
 
-uint8_t  can_offline = 0;
+uint8_t  can_offline = 0;     /* can 연결 상태를 확인 */
 static uint32_t can_retry_tick = 0;
 
 static FDCAN_TxHeaderTypeDef tx_header = {
@@ -17,12 +17,14 @@ static FDCAN_TxHeaderTypeDef tx_header = {
     .MessageMarker       = 0,
 };
 
+
 /* CAN 초기화 */
 void CAN_Comm_Init(void)
 {
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
     HAL_FDCAN_Start(&hfdcan1);
 }
+
 
 /* 프레임 1개 송신 후 에러 카운터 확인 */
 static uint8_t CAN_SendFrame(uint32_t id, const uint8_t *data)
@@ -42,6 +44,7 @@ static uint8_t CAN_SendFrame(uint32_t id, const uint8_t *data)
     return 1;
 }
 
+
 /* GSensor + Flex 패킷 CAN 송신 */
 void CAN_Send(const GSensorPacket_t *gPkt, const FlexPacket_t *fPkt)
 {
@@ -50,6 +53,7 @@ void CAN_Send(const GSensorPacket_t *gPkt, const FlexPacket_t *fPkt)
     if (!CAN_SendFrame(CAN_MSG_ID_SENSOR, (const uint8_t *)gPkt)) return;
     CAN_SendFrame(CAN_MSG_ID_FLEX, (const uint8_t *)fPkt);
 }
+
 
 /* 2초마다 CAN 복구 시도 */
 void CAN_Recovery(void)
@@ -77,6 +81,7 @@ void CAN_Recovery(void)
         HAL_FDCAN_Stop(&hfdcan1);   /* 아직 끊김, 다시 대기 */
     }
 }
+
 
 /* Bus-Off 인터럽트 콜백 */
 void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusITs)
