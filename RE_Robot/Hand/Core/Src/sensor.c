@@ -77,6 +77,8 @@ void Sensor_Init(void)
     GSensor_Init();
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_buf, 2);
     osDelay(500); /* G센서 측정 안정화 대기 */
+    prev_flex[0] = adc_buf[0]; /* Flex 초기 기준값 동기화 */
+    prev_flex[1] = adc_buf[1];
     Sensor_CalibrateOffset();
 }
 
@@ -94,7 +96,7 @@ void Sensor_ReadAll(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
     int16_t ay = (int16_t)((raw[3] << 8) | raw[2]);
     int16_t az = (int16_t)((raw[5] << 8) | raw[4]);
 
-    float fax = ax * 0.004f; /* 풀리졸루션 4mg/LSB → g 단위 */
+    float fax = ax * 0.004f; 
     float fay = ay * 0.004f;
     float faz = az * 0.004f;
 
