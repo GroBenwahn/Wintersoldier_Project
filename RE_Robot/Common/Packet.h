@@ -8,9 +8,12 @@
 #define PKT_END                0x55
 
 /* CAN 메시지 ID */
-#define CAN_MSG_ID_SENSOR      0x001  /* Hand → Robot: G센서 + 높낮이 스위치 */
-#define CAN_MSG_ID_FLEX        0x002  /* Hand → Robot: Flex 센서 */
-#define CAN_MSG_ID_SERVO_DBG   0x003  /* Robot → (디버그): 서보 6개 현재 각도 */
+#define CAN_MSG_SENSOR      0x100  /* Hand → Robot: G센서 + 높낮이 스위치 */
+#define CAN_MSG_FLEX        0x101  /* Hand → Robot: Flex 센서 */
+#define CAN_MSG_ERROR_HAND  0x102  /* Robot → Hand: 에러 발생 */
+#define CAN_MSG_SERVO_DBG   0x200  /* Robot → (디버그): 서보 6개 현재 각도 */
+#define CAN_MSG_ERROR_ROBOT 0x201  /* Hand → Robot: 에러 발생 */
+
 
 /* 높낮이 스위치 상태 (Up_Switch=PB4, Down_Switch=PB5, Active LOW) */
 typedef enum 
@@ -40,7 +43,7 @@ typedef struct
 
 
 /*
- * 패킷 2 - Flex 센서 (CAN ID: 0x002)
+ * 패킷 2 - Flex 센서
  * 8바이트 = CAN 클래식 1프레임
  *
  * UART 송신: [PKT_START(1)] [FlexPacket_t(8)] [PKT_END(1)] = 10바이트

@@ -35,7 +35,7 @@ static uint8_t CAN_SendFrame(uint32_t id, const uint8_t *data)
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, (uint8_t *)data);
     HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
 
-    if (status.TxErrorCnt > 0)
+    if (status.ErrorPassive == 1)
     {
         HAL_FDCAN_Stop(&hfdcan1);   /* TEC 즉시 리셋 */
         can_offline = 1;
@@ -72,7 +72,7 @@ void CAN_Recovery(void)
     osDelay(5);
     HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
 
-    if (status.TxErrorCnt == 0)
+    if (status.ErrorPassive == 0)
     {
         can_offline = 0;    /* 복구 성공 */
     }
