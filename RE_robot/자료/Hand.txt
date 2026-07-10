@@ -1,0 +1,55 @@
+전원 ON
+  │
+  ▼
+HAL_Init()                 ← 하드웨어 기초 초기화 (TIM6 타임베이스 시작)
+SystemClock_Config() ← CPU 170MHz 설정
+  │
+MX_GPIO_Init()      ← 스위치, G센서 INT 핀 설정
+MX_DMA_Init()       ← Flex ADC DMA 채널 설정
+MX_ADC1_Init()      ← ADC1 설정 (12bit, 연속변환)
+MX_FDCAN1_Init()    ← FDCAN1 설정 (500kbps, Classic CAN)
+MX_I2C1_Init()      ← I2C1 설정 (ADXL345용)
+MX_USART1_Init()    ← UART1 설정 (115200, HC-05용)
+  │
+osKernelInitialize() ← FreeRTOS 커널 준비
+packetQueueNew(8,8)  ← 큐 생성
+osThreadNew × 3      ← 태스크 3개 등록 (아직 실행 안됨)
+  │
+osKernelStart()      ← 스케줄러 시작 (여기서부터 FreeRTOS가 제어)
+  │
+  ├─ CommTask (AboveNormal - 최고 우선순위)
+  │    CAN_Comm_Init() ← CAN 활성화
+  │    osMessageQueueGet(100ms) ← 큐 비어있음 → 즉시 블로킹
+  │
+  ├─ SwitchTask (Normal)
+  │    switch_changed 확인 → 없음
+  │    osDelay(10) → 블로킹
+  │
+  └─ SensorTask (BelowNormal - 최저 우선순위)
+       Sensor_Init()
+         ├─ ADXL345 측정 시작
+         ├─ Flex DMA 시작
+         └─ osDelay(500) → 블로킹 (0.5초 대기)
+
+─── 0.5초 후 ───────────────────────────────────
+  │
+  SensorTask 재개
+    prev_flex 동기화
+    Sensor_CalibrateOffset() ← 지금 자세를 0으로 저장
+    루프 진입
+
+─── 센서 변화 발생 ──────────────────────────────
+  │
+  인터럽트 (EXTI or DMA콜백)
+    gsensor_changed = 1  또는  flex_changed = 1
+  │
+  SensorTask (10ms 주기 확인)
+    플래그 감지 → osMessageQueuePut(sig)
+  │
+  CommTask 깨어남 (AboveNormal → 즉시 선점)
+    Sensor_ReadAll() ← I2C + ADC + GPIO 읽기 + 패킷 조립
+    BT_Send()        ← UART 송신 (항상)
+    CAN_Send()       ← CAN 송신 (can_offline=0 일때만)
+    CAN_Recovery()   ← 2초마다 재연결 시도
+  │
+  다시 큐 대기 → 반복

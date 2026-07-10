@@ -23,6 +23,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Packet.h"
+#include "sensor.h"
+#include "bluetooth.h"
+#include "can_comm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,21 +57,21 @@ UART_HandleTypeDef huart1;
 osThreadId_t CommTaskHandle;
 const osThreadAttr_t CommTask_attributes = {
   .name = "CommTask",
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for SensorTask */
 osThreadId_t SensorTaskHandle;
 const osThreadAttr_t SensorTask_attributes = {
   .name = "SensorTask",
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityBelowNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for SwitchTask */
 osThreadId_t SwitchTaskHandle;
 const osThreadAttr_t SwitchTask_attributes = {
   .name = "SwitchTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for packetQueue */
@@ -519,6 +522,9 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
+
+
+//////////////////////////////   StartCommTask   ///////////////////////////////////
 /* USER CODE BEGIN Header_StartCommTask */
 /**
   * @brief  Function implementing the CommTask thread.
@@ -526,17 +532,34 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartCommTask */
+
 void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
+  CAN_Comm_Init(); /* CAN 버스 활성화 (Bus-Off 알림 등록 + 송신 시작) */
+
+  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 */
+  FlexPacket_t    fPkt; /* Flex 센서 패킷 */
+  uint8_t         sig[8] = {0};
+
   for(;;)
   {
-    osDelay(1);
+    /* SensorTask 또는 SwitchTask가 큐에 신호를 넣으면 여기서 깨어남 */
+    /* 100ms 동안 신호 없으면 타임아웃 후 CAN_Recovery()만 실행 */
+    if (osMessageQueueGet(packetQueueHandle, sig, NULL, 100) == osOK)
+    {
+      Sensor_ReadAll(&gPkt, &fPkt); /* 전체 센서 읽기 + 패킷 조립 */
+      BT_Send(&gPkt, &fPkt);        /* 블루투스 송신 (항상 실행) */
+      CAN_Send(&gPkt, &fPkt);       /* CAN 송신 (can_offline=1 이면 스킵) */
+    }
+    CAN_Recovery(); /* CAN 끊김 상태면 2초마다 재연결 시도 */
   }
   /* USER CODE END 5 */
 }
 
+
+
+///////////////////////////////   StartSensorTask  ////////////////////////////////////
 /* USER CODE BEGIN Header_StartSensorTask */
 /**
 * @brief Function implementing the SensorTask thread.
@@ -544,17 +567,30 @@ void StartCommTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartSensorTask */
+
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
-  /* Infinite loop */
+  /* G센서 설정 + Flex DMA 시작 + 0.5초 안정화 + 착용 자세 오프셋 캘리브레이션 */
+  Sensor_Init();
+
+  uint8_t sig[8] = {0}; 
+
   for(;;)
   {
-    osDelay(1);
+    /* G센서 인터럽트 또는 Flex DMA 콜백에서 플래그가 세팅되면 감지 */
+    if (gsensor_changed || flex_changed)
+    {
+      /* CommTask에 "센서값 변경됨, 읽어서 보내줘" 신호 전달 */
+      osMessageQueuePut(packetQueueHandle, sig, 0, 0);
+    }
+    osDelay(10); /* 10ms 주기로 플래그 확인 */
   }
   /* USER CODE END StartSensorTask */
 }
 
+
+////////////////////////////////  StartSwitchTask  ////////////////////////////////
 /* USER CODE BEGIN Header_StartSwitchTask */
 /**
 * @brief Function implementing the SwitchTask thread.
@@ -562,16 +598,26 @@ void StartSensorTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartSwitchTask */
+
 void StartSwitchTask(void *argument)
 {
   /* USER CODE BEGIN StartSwitchTask */
-  /* Infinite loop */
+  uint8_t sig[8] = {0}; 
+
   for(;;)
   {
-    osDelay(1);
+    /* 높낮이 스위치 EXTI 콜백에서 플래그가 세팅되면 감지 */
+    if (switch_changed)
+    {
+      /* CommTask에 "스위치 변경됨, 읽어서 보내줘" 신호 전달 */
+      osMessageQueuePut(packetQueueHandle, sig, 0, 0);
+    }
+    osDelay(10); /* 10ms 주기로 플래그 확인 */
   }
   /* USER CODE END StartSwitchTask */
 }
+
+
 
 /**
   * @brief  Period elapsed callback in non blocking mode
@@ -581,6 +627,7 @@ void StartSwitchTask(void *argument)
   * @param  htim : TIM handle
   * @retval None
   */
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */

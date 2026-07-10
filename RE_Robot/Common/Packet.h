@@ -12,6 +12,7 @@
 #define CAN_MSG_ID_FLEX        0x002  /* Hand → Robot: Flex 센서 */
 #define CAN_MSG_ID_SERVO_DBG   0x003  /* Robot → (디버그): 서보 6개 현재 각도 */
 
+
 /* 높낮이 스위치 상태 (Up_Switch=PB4, Down_Switch=PB5, Active LOW) */
 typedef enum 
 {
