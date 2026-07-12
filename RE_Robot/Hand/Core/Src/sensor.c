@@ -83,8 +83,8 @@ void Sensor_Init(void)
 }
 
 
-/* 전체 센서 읽기 + 패킷 조립 */
-void Sensor_ReadAll(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
+/* 전체 센서 원시값 읽기 (I2C 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기) */
+void Sensor_ReadAll(SensorData_t *data)
 {
     /* --- G센서 읽기 --- */
     uint8_t raw[6] = {0};
@@ -96,46 +96,56 @@ void Sensor_ReadAll(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
     int16_t ay = (int16_t)((raw[3] << 8) | raw[2]);
     int16_t az = (int16_t)((raw[5] << 8) | raw[4]);
 
-    float fax = ax * 0.004f; 
+    float fax = ax * 0.004f;
     float fay = ay * 0.004f;
     float faz = az * 0.004f;
 
-    int16_t roll  = (int16_t)(atan2f(fay, faz)                       * (1800.0f / 3.14159f)) - roll_offset;
-    int16_t pitch = (int16_t)(atan2f(-fax, sqrtf(fay*fay + faz*faz)) * (1800.0f / 3.14159f)) - pitch_offset;
+    data->roll  = (int16_t)(atan2f(fay, faz)                       * (1800.0f / 3.14159f)) - roll_offset;
+    data->pitch = (int16_t)(atan2f(-fax, sqrtf(fay*fay + faz*faz)) * (1800.0f / 3.14159f)) - pitch_offset;
 
     /* --- 스위치 읽기 --- */
     uint8_t up   = (HAL_GPIO_ReadPin(Up_Switch_GPIO_Port,   Up_Switch_Pin)   == GPIO_PIN_RESET) ? 1 : 0;
     uint8_t down = (HAL_GPIO_ReadPin(Down_Switch_GPIO_Port, Down_Switch_Pin) == GPIO_PIN_RESET) ? 1 : 0;
 
-    HeightSwitch_t sw;
-    if      (up)   sw = HEIGHT_UP;
-    else if (down) sw = HEIGHT_DOWN;
-    else           sw = HEIGHT_STOP;
+    if      (up)   data->height_sw = HEIGHT_UP;
+    else if (down) data->height_sw = HEIGHT_DOWN;
+    else           data->height_sw = HEIGHT_STOP;
 
-    /* --- GSensorPacket 조립 --- */
-    gPkt->roll      = roll;
-    gPkt->pitch     = pitch;
-    gPkt->height_sw = (uint8_t)sw;
-    gPkt->reserved[0] = 0;
-    gPkt->reserved[1] = 0;
-    gPkt->checksum  = CALC_CHECKSUM(gPkt);
+    /* --- Flex 읽기 (ADC는 DMA로 항상 최신값이 버퍼에 있어 그대로 복사) --- */
+    data->flex1 = adc_buf[0];
+    data->flex2 = adc_buf[1];
+}
 
-    /* --- FlexPacket 조립 --- */
-    fPkt->flex1 = adc_buf[0];
-    fPkt->flex2 = adc_buf[1];
-    fPkt->reserved[0] = 0;
-    fPkt->reserved[1] = 0;
-    fPkt->reserved[2] = 0;
-    fPkt->checksum = CALC_CHECKSUM(fPkt);
 
-    /* 이전값 갱신 */
+/* GSensorPacket 조립 (체크섬 포함) */
+void Sensor_PackGSensor(const SensorData_t *data, GSensorPacket_t *pkt)
+{
+    pkt->roll        = data->roll;
+    pkt->pitch       = data->pitch;
+    pkt->height_sw   = (uint8_t)data->height_sw;
+    pkt->reserved[0] = 0;
+    pkt->reserved[1] = 0;
+    pkt->checksum    = CALC_CHECKSUM(pkt);
+}
+
+
+/* FlexPacket 조립 (체크섬 포함) */
+void Sensor_PackFlex(const SensorData_t *data, FlexPacket_t *pkt)
+{
+    pkt->flex1       = data->flex1;
+    pkt->flex2       = data->flex2;
+    pkt->reserved[0] = 0;
+    pkt->reserved[1] = 0;
+    pkt->reserved[2] = 0;
+    pkt->checksum    = CALC_CHECKSUM(pkt);
+}
+
+
+/* Flex 변경 감지 기준값 갱신 (BT로 변경 이벤트를 처리한 직후 호출) */
+void Sensor_ResetFlexBaseline(void)
+{
     prev_flex[0] = adc_buf[0];
     prev_flex[1] = adc_buf[1];
-
-    /* 플래그 클리어 */
-    gsensor_changed = 0;
-    flex_changed    = 0;
-    switch_changed  = 0;
 }
 
 

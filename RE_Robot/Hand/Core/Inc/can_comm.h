@@ -12,7 +12,7 @@ extern uint8_t can_offline;
 
 /* 함수 선언 */
 void CAN_Comm_Init(void);
-void CAN_Send(const GSensorPacket_t *gPkt, const FlexPacket_t *fPkt);
+void CAN_Send(uint32_t id, const uint8_t *data);
 void CAN_Recovery(void);
 
 #endif /* __CAN_COMM_H */

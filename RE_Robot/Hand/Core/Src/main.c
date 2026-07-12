@@ -95,7 +95,7 @@ const osTimerAttr_t Timer100ms_attributes = {
   .name = "Timer100ms"
 };
 /* USER CODE BEGIN PV */
-
+static SensorData_t g_sensorData; /* Callback_10ms가 갱신, BT(CommTask)/CAN 양쪽에서 공유 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -182,7 +182,7 @@ int main(void)
   Timer100msHandle = osTimerNew(Callback_100ms, osTimerPeriodic, NULL, &Timer100ms_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
+  osTimerStart(Timer10msHandle, 10); /* CAN 주기 송신 시작 */
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
@@ -562,8 +562,8 @@ void StartCommTask(void *argument)
   /* USER CODE BEGIN 5 */
   CAN_Comm_Init(); /* CAN 버스 활성화 (Bus-Off 알림 등록 + 송신 시작) */
 
-  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 */
-  FlexPacket_t    fPkt; /* Flex 센서 패킷 */
+  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 (BT용) */
+  FlexPacket_t    fPkt; /* Flex 센서 패킷 (BT용) */
   uint8_t         sig[8] = {0};
 
   for(;;)
@@ -572,9 +572,15 @@ void StartCommTask(void *argument)
     /* 100ms 동안 신호 없으면 타임아웃 후 CAN_Recovery()만 실행 */
     if (osMessageQueueGet(packetQueueHandle, sig, NULL, 100) == osOK)
     {
-      Sensor_ReadAll(&gPkt, &fPkt); /* 전체 센서 읽기 + 패킷 조립 */
-      BT_Send(&gPkt, &fPkt);        /* 블루투스 송신 (항상 실행) */
-      CAN_Send(&gPkt, &fPkt);       /* CAN 송신 (can_offline=1 이면 스킵) */
+      /* Callback_10ms가 갱신해둔 최신 원시값을 패킹만 해서 BT로 송신 (CAN은 Callback_10ms가 전담) */
+      Sensor_PackGSensor(&g_sensorData, &gPkt);
+      Sensor_PackFlex(&g_sensorData, &fPkt);
+      BT_Send(&gPkt, &fPkt);
+
+      gsensor_changed = 0;
+      flex_changed    = 0;
+      switch_changed  = 0;
+      Sensor_ResetFlexBaseline();
     }
     CAN_Recovery(); /* CAN 끊김 상태면 2초마다 재연결 시도 */
   }
@@ -646,7 +652,16 @@ void Callback_Once(void *argument)
 void Callback_10ms(void *argument)
 {
   /* USER CODE BEGIN Callback_10ms */
+  GSensorPacket_t gPkt;
+  FlexPacket_t    fPkt;
 
+  Sensor_ReadAll(&g_sensorData); /* I2C(G센서) 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기 */
+
+  Sensor_PackGSensor(&g_sensorData, &gPkt);
+  Sensor_PackFlex(&g_sensorData, &fPkt);
+
+  CAN_Send(CAN_MSG_SENSOR, (const uint8_t *)&gPkt);
+  CAN_Send(CAN_MSG_FLEX,   (const uint8_t *)&fPkt);
   /* USER CODE END Callback_10ms */
 }
 
