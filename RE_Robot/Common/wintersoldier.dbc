@@ -1,0 +1,111 @@
+VERSION ""
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: Hand Robot
+
+
+BO_ 256 CAN_MSG_SENSOR: 8 Hand
+ SG_ Roll : 0|16@1- (0.1,0) [-180|180] "deg" Robot
+ SG_ Pitch : 16|16@1- (0.1,0) [-180|180] "deg" Robot
+ SG_ HeightSwitch : 32|8@1+ (1,0) [0|2] "" Robot
+ SG_ Reserved : 40|16@1+ (1,0) [0|65535] "" Robot
+ SG_ Checksum : 56|8@1+ (1,0) [0|255] "" Robot
+
+BO_ 257 CAN_MSG_FLEX: 8 Hand
+ SG_ Flex1 : 0|16@1+ (1,0) [0|4095] "count" Robot
+ SG_ Flex2 : 16|16@1+ (1,0) [0|4095] "count" Robot
+ SG_ Reserved : 32|24@1+ (1,0) [0|16777215] "" Robot
+ SG_ Checksum : 56|8@1+ (1,0) [0|255] "" Robot
+
+BO_ 258 CAN_MSG_ERROR_HAND: 8 Robot
+ SG_ Byte0 : 0|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte1 : 8|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte2 : 16|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte3 : 24|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte4 : 32|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte5 : 40|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte6 : 48|8@1+ (1,0) [0|255] "" Hand
+ SG_ Byte7 : 56|8@1+ (1,0) [0|255] "" Hand
+
+BO_ 512 CAN_MSG_SERVO_DBG: 8 Robot
+ SG_ Servo1 : 0|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Servo2 : 8|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Servo3 : 16|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Servo4 : 24|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Servo5 : 32|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Servo6 : 40|8@1- (1,0) [-90|90] "deg" Vector__XXX
+ SG_ Reserved : 48|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ Checksum : 56|8@1+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 513 CAN_MSG_ERROR_ROBOT: 8 Hand
+ SG_ Byte0 : 0|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte1 : 8|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte2 : 16|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte3 : 24|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte4 : 32|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte5 : 40|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte6 : 48|8@1+ (1,0) [0|255] "" Robot
+ SG_ Byte7 : 56|8@1+ (1,0) [0|255] "" Robot
+
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;
+BA_DEF_DEF_ "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 256 10;
+BA_ "GenMsgCycleTime" BO_ 257 10;
+
+
+CM_ "Wintersoldier RE_Robot FDCAN1 프로토콜. 500kbps Classic CAN, Standard ID(11bit), PCLK1=170MHz/Prescaler=20/Seg1=12/Seg2=4/SJW=3 (샘플포인트 76.5%). 소스: RE_Robot/Common/Packet.h. 2026-07-12 기준 RE_Robot/Hand/Core 소스와 대조 검증함. 작업 배경은 RE_Robot/자료/wintersoldier_can_session_summary.md 참고.";
+
+CM_ BU_ Hand "글러브 컨트롤러 보드 (STM32G431KB, RE_Robot/Hand, H_C.ioc)";
+CM_ BU_ Robot "로봇팔 보드 (STM32G431KB, RE_Robot/Robot, R_A.ioc)";
+
+CM_ BO_ 256 "Hand의 FreeRTOS Timer10ms(Callback_10ms)가 10ms마다 값 변화와 무관하게 무조건 송신 (RE_Robot/Hand/Core/Src/main.c). Robot은 100ms 무수신을 연결 끊김으로 판단할 예정. Robot 쪽 수신 로직은 2026-07-12 기준 미구현.";
+CM_ SG_ 256 Roll "ADXL345 기준, 부팅시 자세를 오프셋으로 빼서 0점 보정됨";
+CM_ SG_ 256 Pitch "ADXL345 기준, 부팅시 자세를 오프셋으로 빼서 0점 보정됨";
+CM_ SG_ 256 Checksum "byte0~6 XOR (Packet.h CALC_CHECKSUM 매크로)";
+
+CM_ BO_ 257 "Hand의 FreeRTOS Timer10ms(Callback_10ms)가 10ms마다 값 변화와 무관하게 무조건 송신. Robot 쪽 수신 로직은 2026-07-12 기준 미구현.";
+CM_ SG_ 257 Flex1 "ADC1 채널1 원시값 (DMA 연속변환, 스케일링 안 됨)";
+CM_ SG_ 257 Flex2 "ADC1 채널2 원시값 (DMA 연속변환, 스케일링 안 됨)";
+CM_ SG_ 257 Checksum "byte0~6 XOR (Packet.h CALC_CHECKSUM 매크로)";
+
+CM_ BO_ 258 "페이로드 포맷 미정. Packet.h에 구조체 정의가 없고 Hand의 CAN_Send()도 이 ID를 처리하지 않음(default case에서 무시됨). 다음 라운드 구현 예정이라 8바이트를 임시로 Byte0~7 raw로만 표기함.";
+
+CM_ BO_ 512 "ServoDbgPacket_t 구조체는 Packet.h에 정의돼 있으나 송신 코드가 아직 없음 (Robot 쪽 CAN 자체가 2026-07-12 기준 미구현). CAN 분석기 디버그 전용이며 컨트롤러(Hand)로는 전송하지 않음 설계.";
+CM_ SG_ 512 Checksum "byte0~6 XOR (Packet.h CALC_CHECKSUM 매크로)";
+
+CM_ BO_ 513 "페이로드 포맷 미정. Packet.h에 구조체 정의가 없고 CAN_Send()도 이 ID를 처리하지 않음(무시됨). 다음 라운드 구현 예정이라 8바이트를 임시로 Byte0~7 raw로만 표기함.";
+
+VAL_ 256 HeightSwitch 0 "HEIGHT_STOP" 1 "HEIGHT_UP" 2 "HEIGHT_DOWN" ;
