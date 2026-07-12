@@ -41,22 +41,16 @@ FDCAN1.CalculateTimeBitNominal=2000
 FDCAN1.CalculateTimeQuantumNominal=117.64705882352942
 FDCAN1.ClockDivider=FDCAN_CLOCK_DIV1
 FDCAN1.DataSyncJumpWidth=1
-FDCAN1.IPParameters=CalculateTimeQuantumNominal,CalculateTimeBitNominal,CalculateBaudRateNominal,NominalPrescaler,NominalTimeSeg1,NominalTimeSeg2,DataSyncJumpWidth,ClockDivider
+FDCAN1.IPParameters=CalculateTimeQuantumNominal,CalculateTimeBitNominal,CalculateBaudRateNominal,NominalPrescaler,NominalTimeSeg1,NominalTimeSeg2,DataSyncJumpWidth,ClockDivider,NominalSyncJumpWidth
 FDCAN1.NominalPrescaler=20
-FDCAN1.NominalTimeSeg1=8
-FDCAN1.NominalTimeSeg2=8
-<<<<<<< HEAD
-FREERTOS.FootprintOK=true
-FREERTOS.IPParameters=Tasks01,FootprintOK,Queues01,configTOTAL_HEAP_SIZE
-FREERTOS.Queues01=packetQueue,8,8,1,Dynamic,NULL,NULL
-FREERTOS.Tasks01=CommTask,32,256,StartCommTask,Default,NULL,Dynamic,NULL,NULL;SensorTask,16,256,StartSensorTask,Default,NULL,Dynamic,NULL,NULL;SwitchTask,24,256,StartSwitchTask,Default,NULL,Dynamic,NULL,NULL
-=======
+FDCAN1.NominalSyncJumpWidth=3
+FDCAN1.NominalTimeSeg1=12
+FDCAN1.NominalTimeSeg2=4
 FREERTOS.FootprintOK=false
 FREERTOS.IPParameters=Tasks01,FootprintOK,Queues01,configTOTAL_HEAP_SIZE,Timers01
 FREERTOS.Queues01=packetQueue,8,8,1,Dynamic,NULL,NULL
 FREERTOS.Tasks01=CommTask,24,256,StartCommTask,Default,NULL,Dynamic,NULL,NULL;SensorTask,24,256,StartSensorTask,Default,NULL,Dynamic,NULL,NULL;SwitchTask,32,256,StartSwitchTask,Default,NULL,Dynamic,NULL,NULL
 FREERTOS.Timers01=TimerOnce,Callback_Once,osTimerPeriodic,Default,NULL,Dynamic,NULL;Timer10ms,Callback_10ms,osTimerPeriodic,Default,NULL,Dynamic,NULL;Timer100ms,Callback_100ms,osTimerPeriodic,Default,NULL,Dynamic,NULL
->>>>>>> b6920da177f79cf8ce37a955d67f4a5dc9a85360
 FREERTOS.configTOTAL_HEAP_SIZE=6144
 File.Version=6
 GPIO.groupedBy=Group By Peripherals

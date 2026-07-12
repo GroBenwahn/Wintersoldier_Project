@@ -57,27 +57,42 @@ UART_HandleTypeDef huart1;
 osThreadId_t CommTaskHandle;
 const osThreadAttr_t CommTask_attributes = {
   .name = "CommTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for SensorTask */
 osThreadId_t SensorTaskHandle;
 const osThreadAttr_t SensorTask_attributes = {
   .name = "SensorTask",
-  .priority = (osPriority_t) osPriorityBelowNormal,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for SwitchTask */
 osThreadId_t SwitchTaskHandle;
 const osThreadAttr_t SwitchTask_attributes = {
   .name = "SwitchTask",
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for packetQueue */
 osMessageQueueId_t packetQueueHandle;
 const osMessageQueueAttr_t packetQueue_attributes = {
   .name = "packetQueue"
+};
+/* Definitions for TimerOnce */
+osTimerId_t TimerOnceHandle;
+const osTimerAttr_t TimerOnce_attributes = {
+  .name = "TimerOnce"
+};
+/* Definitions for Timer10ms */
+osTimerId_t Timer10msHandle;
+const osTimerAttr_t Timer10ms_attributes = {
+  .name = "Timer10ms"
+};
+/* Definitions for Timer100ms */
+osTimerId_t Timer100msHandle;
+const osTimerAttr_t Timer100ms_attributes = {
+  .name = "Timer100ms"
 };
 /* USER CODE BEGIN PV */
 
@@ -94,6 +109,9 @@ static void MX_USART1_UART_Init(void);
 void StartCommTask(void *argument);
 void StartSensorTask(void *argument);
 void StartSwitchTask(void *argument);
+void Callback_Once(void *argument);
+void Callback_10ms(void *argument);
+void Callback_100ms(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -152,6 +170,16 @@ int main(void)
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
+
+  /* Create the timer(s) */
+  /* creation of TimerOnce */
+  TimerOnceHandle = osTimerNew(Callback_Once, osTimerOnce, NULL, &TimerOnce_attributes);
+
+  /* creation of Timer10ms */
+  Timer10msHandle = osTimerNew(Callback_10ms, osTimerPeriodic, NULL, &Timer10ms_attributes);
+
+  /* creation of Timer100ms */
+  Timer100msHandle = osTimerNew(Callback_100ms, osTimerPeriodic, NULL, &Timer100ms_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -345,9 +373,9 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.TransmitPause = DISABLE;
   hfdcan1.Init.ProtocolException = DISABLE;
   hfdcan1.Init.NominalPrescaler = 20;
-  hfdcan1.Init.NominalSyncJumpWidth = 1;
-  hfdcan1.Init.NominalTimeSeg1 = 8;
-  hfdcan1.Init.NominalTimeSeg2 = 8;
+  hfdcan1.Init.NominalSyncJumpWidth = 3;
+  hfdcan1.Init.NominalTimeSeg1 = 12;
+  hfdcan1.Init.NominalTimeSeg2 = 4;
   hfdcan1.Init.DataPrescaler = 1;
   hfdcan1.Init.DataSyncJumpWidth = 1;
   hfdcan1.Init.DataTimeSeg1 = 1;
@@ -522,9 +550,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-
-
-//////////////////////////////   StartCommTask   ///////////////////////////////////
 /* USER CODE BEGIN Header_StartCommTask */
 /**
   * @brief  Function implementing the CommTask thread.
@@ -532,7 +557,6 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartCommTask */
-
 void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -557,9 +581,6 @@ void StartCommTask(void *argument)
   /* USER CODE END 5 */
 }
 
-
-
-///////////////////////////////   StartSensorTask  ////////////////////////////////////
 /* USER CODE BEGIN Header_StartSensorTask */
 /**
 * @brief Function implementing the SensorTask thread.
@@ -567,7 +588,6 @@ void StartCommTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartSensorTask */
-
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
@@ -589,8 +609,6 @@ void StartSensorTask(void *argument)
   /* USER CODE END StartSensorTask */
 }
 
-
-////////////////////////////////  StartSwitchTask  ////////////////////////////////
 /* USER CODE BEGIN Header_StartSwitchTask */
 /**
 * @brief Function implementing the SwitchTask thread.
@@ -598,7 +616,6 @@ void StartSensorTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartSwitchTask */
-
 void StartSwitchTask(void *argument)
 {
   /* USER CODE BEGIN StartSwitchTask */
@@ -617,7 +634,29 @@ void StartSwitchTask(void *argument)
   /* USER CODE END StartSwitchTask */
 }
 
+/* Callback_Once function */
+void Callback_Once(void *argument)
+{
+  /* USER CODE BEGIN Callback_Once */
 
+  /* USER CODE END Callback_Once */
+}
+
+/* Callback_10ms function */
+void Callback_10ms(void *argument)
+{
+  /* USER CODE BEGIN Callback_10ms */
+
+  /* USER CODE END Callback_10ms */
+}
+
+/* Callback_100ms function */
+void Callback_100ms(void *argument)
+{
+  /* USER CODE BEGIN Callback_100ms */
+
+  /* USER CODE END Callback_100ms */
+}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
@@ -627,7 +666,6 @@ void StartSwitchTask(void *argument)
   * @param  htim : TIM handle
   * @retval None
   */
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
