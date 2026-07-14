@@ -57,7 +57,7 @@ UART_HandleTypeDef huart1;
 osThreadId_t CommTaskHandle;
 const osThreadAttr_t CommTask_attributes = {
   .name = "CommTask",
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for SensorTask */
@@ -71,7 +71,7 @@ const osThreadAttr_t SensorTask_attributes = {
 osThreadId_t SwitchTaskHandle;
 const osThreadAttr_t SwitchTask_attributes = {
   .name = "SwitchTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
 /* Definitions for packetQueue */
@@ -562,8 +562,8 @@ void StartCommTask(void *argument)
   /* USER CODE BEGIN 5 */
   CAN_Comm_Init(); /* CAN 버스 활성화 (Bus-Off 알림 등록 + 송신 시작) */
 
-  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 (BT용) */
-  FlexPacket_t    fPkt; /* Flex 센서 패킷 (BT용) */
+  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 */
+  FlexPacket_t    fPkt; /* Flex 센서 패킷 */
   uint8_t         sig[8] = {0};
 
   for(;;)

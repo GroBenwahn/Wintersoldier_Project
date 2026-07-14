@@ -88,7 +88,7 @@ void CAN_Recovery(void)
     osDelay(5);
     HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
 
-    if (status.ErrorPassive == 0)
+    if (status.TxErrorCnt == 0)
     {
         can_offline = 0;    /* 복구 성공 */
     }
