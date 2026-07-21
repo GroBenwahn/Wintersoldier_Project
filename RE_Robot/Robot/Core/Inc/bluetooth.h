@@ -11,7 +11,8 @@ typedef enum {
     BT_ERR = 1
 } BtStatus_t;
 
-/* Hand BT 프레임 수신 (GSensorPacket + FlexPacket 두 프레임) */
+void       BT_Init(void);
+void       BT_FlushQueue(void);
 BtStatus_t BT_Recv(GSensorPacket_t *gPkt, FlexPacket_t *fPkt);
 
 #endif /* __BLUETOOTH_H */

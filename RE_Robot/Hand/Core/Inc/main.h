@@ -61,6 +61,8 @@ void Error_Handler(void);
 #define Flex_Sensor_01_GPIO_Port GPIOA
 #define Flex_Sensor_02_Pin GPIO_PIN_1
 #define Flex_Sensor_02_GPIO_Port GPIOA
+#define Flex_Sensor_03_Pin GPIO_PIN_2
+#define Flex_Sensor_03_GPIO_Port GPIOA
 #define G_Sensor_INT_Pin GPIO_PIN_7
 #define G_Sensor_INT_GPIO_Port GPIOA
 #define G_Sensor_INT_EXTI_IRQn EXTI9_5_IRQn

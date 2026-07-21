@@ -1,9 +1,13 @@
 #include "can_comm.h"
+#include "switch_mode.h"
 #include <string.h>
 
 /* 최근 수신 패킷 저장소 (ISR에서 갱신되므로 volatile) */
 volatile GSensorPacket_t latest_gPkt = {0};
 volatile FlexPacket_t    latest_fPkt = {0};
+
+/* 통신 연결 플래그 (COMM_CONNECTED_NONE/CAN/BT) */
+volatile uint8_t comm_connected = COMM_CONNECTED_NONE;
 
 
 /* CAN 초기화: 수신 필터 + 알림 등록 + 시작 */
@@ -29,6 +33,7 @@ void CAN_Comm_Init(void)
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
     if (!(RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE)) return;
+    if (comm_mode != COMM_CAN) return;
 
     FDCAN_RxHeaderTypeDef rxHeader;
     uint8_t data[8];
@@ -42,10 +47,15 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
     if (cs != data[7]) return;
 
     if (rxHeader.Identifier == CAN_MSG_SENSOR)
+    {
         memcpy((void *)&latest_gPkt, data, 8);
-
+        comm_connected = COMM_CONNECTED_CAN;
+    }
     else if (rxHeader.Identifier == CAN_MSG_FLEX)
+    {
         memcpy((void *)&latest_fPkt, data, 8);
+        comm_connected = COMM_CONNECTED_CAN;
+    }
 }
 
 

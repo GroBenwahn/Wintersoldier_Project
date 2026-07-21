@@ -54,7 +54,8 @@ typedef struct
 {
     uint16_t flex1;       /* Flex 센서 1, ADC 12bit값 (0 ~ 4095) */
     uint16_t flex2;       /* Flex 센서 2, ADC 12bit값 (0 ~ 4095) */
-    uint8_t  reserved[3]; /* 예약 (0으로 채움) */
+    uint16_t flex3;       /* Flex 센서 3, ADC 12bit값 (0 ~ 4095) */
+    uint8_t  reserved[1]; /* 예약 (0으로 채움) */
     uint8_t  checksum;    /* XOR(byte 0 ~ 6) */
 } FlexPacket_t;           /* 총 8바이트 */
 #pragma pack()

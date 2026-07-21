@@ -1,57 +1,99 @@
 #include "bluetooth.h"
+#include "can_comm.h"
+#include "cmsis_os.h"
 #include <string.h>
 
-/* 단일 프레임 수신: [0xAA][8 bytes][0x55] */
-static BtStatus_t RecvFrame(uint8_t *buf, uint32_t hunt_timeout_ms)
+#define FRAME_SIZE  10   /* [0xAA][8 bytes data][0x55] */
+
+/* 수신 상태머신 */
+typedef enum { RX_HUNT = 0, RX_DATA } RxState_t;
+
+static volatile RxState_t rx_state  = RX_HUNT;
+static uint8_t            hunt_byte;             /* 1바이트 탐색 버퍼 */
+static uint8_t            frame_buf[FRAME_SIZE]; /* 프레임 수신 버퍼  */
+
+/* 검증 완료된 8바이트 패킷을 저장하는 큐 (ISR → CommTask) */
+static osMessageQueueId_t bt_pkt_queue;
+
+
+/* CommTask 시작 시 1회 호출 */
+void BT_Init(void)
 {
-    uint8_t byte;
-    uint32_t start = HAL_GetTick();
-
-    /* Start byte(0xAA) 탐색 */
-    do {
-        if (HAL_UART_Receive(&huart1, &byte, 1, 2) == HAL_OK && byte == PKT_START)
-            break;
-        if ((HAL_GetTick() - start) >= hunt_timeout_ms)
-            return BT_ERR;
-    } while (1);
-
-
-    /* 8 bytes 데이터 + 1 byte end byte 수신 */
-    uint8_t frame[9];
-    if (HAL_UART_Receive(&huart1, frame, 9, 20) != HAL_OK)
-        return BT_ERR;
-
-
-    /* End byte 확인 */
-    if (frame[8] != PKT_END)
-        return BT_ERR;
-
-
-    /* 체크섬 검증 (byte 0~6 XOR = byte 7) */
-    uint8_t cs = 0;
-    for (int i = 0; i < 7; i++) cs ^= frame[i];
-    if (cs != frame[7])
-        return BT_ERR;
-
-
-    memcpy(buf, frame, 8);
-    return BT_OK;
+    bt_pkt_queue = osMessageQueueNew(4, 8, NULL);
+    rx_state     = RX_HUNT;
+    HAL_UART_Receive_IT(&huart1, &hunt_byte, 1);
 }
 
 
+/*
+ * UART 수신 완료 인터럽트 콜백 (ISR 컨텍스트)
+ *
+ * RX_HUNT: 1바이트씩 읽어 0xAA(시작 바이트) 탐색
+ * RX_DATA: 나머지 9바이트(데이터 8 + 종료 1) 수신 → 검증 → 큐에 Put
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance != USART1) return;
 
-/* Hand BT 프레임 수신: GSensorPacket + FlexPacket */
+    if (rx_state == RX_HUNT)
+    {
+        if (hunt_byte == PKT_START)
+        {
+            frame_buf[0] = PKT_START;
+            rx_state     = RX_DATA;
+            HAL_UART_Receive_IT(&huart1, frame_buf + 1, FRAME_SIZE - 1);
+        }
+        else
+        {
+            HAL_UART_Receive_IT(&huart1, &hunt_byte, 1);
+        }
+    }
+    else /* RX_DATA */
+    {
+        rx_state = RX_HUNT;
+
+        /* 종료 바이트 + 체크섬 검증 (byte 1~7 XOR = byte 8) */
+        if (frame_buf[FRAME_SIZE - 1] == PKT_END)
+        {
+            uint8_t cs = 0;
+            for (int i = 1; i < 8; i++) cs ^= frame_buf[i];
+
+            if (cs == frame_buf[8])
+            {
+                uint8_t pkt[8];
+                memcpy(pkt, frame_buf + 1, 8);
+                osMessageQueuePut(bt_pkt_queue, pkt, 0, 0); /* ISR-safe, 타임아웃=0 */
+            }
+        }
+
+        HAL_UART_Receive_IT(&huart1, &hunt_byte, 1); /* 다음 프레임 탐색 시작 */
+    }
+}
+
+
+/* 모드 전환 시 큐에 남은 오래된 데이터 제거 */
+void BT_FlushQueue(void)
+{
+    osMessageQueueReset(bt_pkt_queue);
+}
+
+
+/*
+ * CommTask에서 호출.
+ * osMessageQueueGet은 데이터가 올 때까지 진짜 Block → CPU를 ServoTask에 양보.
+ */
 BtStatus_t BT_Recv(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
 {
-    uint8_t buf[8];
+    uint8_t pkt[8];
 
-    /* GSensorPacket 수신 */
-    if (RecvFrame(buf, 50) != BT_OK) return BT_ERR;
-    memcpy(gPkt, buf, 8);
+    /* GSensorPacket 수신 대기 (100ms 타임아웃) */
+    if (osMessageQueueGet(bt_pkt_queue, pkt, NULL, 100) != osOK) return BT_ERR;
+    memcpy(gPkt, pkt, 8);
 
-    /* FlexPacket 수신 */
-    if (RecvFrame(buf, 30) != BT_OK) return BT_ERR;
-    memcpy(fPkt, buf, 8);
+    /* FlexPacket 수신 대기 (100ms 타임아웃) */
+    if (osMessageQueueGet(bt_pkt_queue, pkt, NULL, 100) != osOK) return BT_ERR;
+    memcpy(fPkt, pkt, 8);
 
+    comm_connected = COMM_CONNECTED_BT;
     return BT_OK;
 }

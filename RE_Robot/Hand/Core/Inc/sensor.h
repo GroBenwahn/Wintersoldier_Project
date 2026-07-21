@@ -21,6 +21,7 @@ typedef struct
     HeightSwitch_t height_sw;
     uint16_t       flex1;
     uint16_t       flex2;
+    uint16_t       flex3;
 } SensorData_t;
 
 /* 함수 선언 */

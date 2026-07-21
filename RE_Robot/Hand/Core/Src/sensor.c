@@ -22,8 +22,8 @@ volatile uint8_t flex_changed    = 0;
 volatile uint8_t switch_changed  = 0;
 
 /* ADC DMA 버퍼 */
-static uint16_t adc_buf[2]   = {0};
-static uint16_t prev_flex[2] = {0};
+static uint16_t adc_buf[3]   = {0};
+static uint16_t prev_flex[3] = {0};
 
 /* G센서 착용 자세 오프셋 (전원 인가 시 자세 = 0 기준) */
 static int16_t roll_offset  = 0;
@@ -75,10 +75,11 @@ static void GSensor_Init(void)
 void Sensor_Init(void)
 {
     GSensor_Init();
-    HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_buf, 2);
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_buf, 3);
     osDelay(500); /* G센서 측정 안정화 대기 */
     prev_flex[0] = adc_buf[0]; /* Flex 초기 기준값 동기화 */
     prev_flex[1] = adc_buf[1];
+    prev_flex[2] = adc_buf[2];
     Sensor_CalibrateOffset();
 }
 
@@ -114,6 +115,7 @@ void Sensor_ReadAll(SensorData_t *data)
     /* --- Flex 읽기 (ADC는 DMA로 항상 최신값이 버퍼에 있어 그대로 복사) --- */
     data->flex1 = adc_buf[0];
     data->flex2 = adc_buf[1];
+    data->flex3 = adc_buf[2];
 }
 
 
@@ -134,9 +136,8 @@ void Sensor_PackFlex(const SensorData_t *data, FlexPacket_t *pkt)
 {
     pkt->flex1       = data->flex1;
     pkt->flex2       = data->flex2;
+    pkt->flex3       = data->flex3;
     pkt->reserved[0] = 0;
-    pkt->reserved[1] = 0;
-    pkt->reserved[2] = 0;
     pkt->checksum    = CALC_CHECKSUM(pkt);
 }
 
@@ -146,6 +147,7 @@ void Sensor_ResetFlexBaseline(void)
 {
     prev_flex[0] = adc_buf[0];
     prev_flex[1] = adc_buf[1];
+    prev_flex[2] = adc_buf[2];
 }
 
 
@@ -170,11 +172,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     {
         int32_t d0 = (int32_t)adc_buf[0] - (int32_t)prev_flex[0];
         int32_t d1 = (int32_t)adc_buf[1] - (int32_t)prev_flex[1];
+        int32_t d2 = (int32_t)adc_buf[2] - (int32_t)prev_flex[2];
 
         if (d0 < 0) d0 = -d0;
         if (d1 < 0) d1 = -d1;
+        if (d2 < 0) d2 = -d2;
 
-        if (d0 > FLEX_THRESHOLD || d1 > FLEX_THRESHOLD)
+        if (d0 > FLEX_THRESHOLD || d1 > FLEX_THRESHOLD || d2 > FLEX_THRESHOLD)
         {
             flex_changed = 1;
         }

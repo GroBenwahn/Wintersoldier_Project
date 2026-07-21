@@ -23,6 +23,12 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Packet.h"
+#include "bluetooth.h"
+#include "can_comm.h"
+#include "switch_mode.h"
+#include "servo.h"
+#include "lcd.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -147,7 +153,7 @@ int main(void)
   MX_TIM3_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  CAN_Comm_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -618,6 +624,8 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
+
+
 /* USER CODE BEGIN Header_StartServoTask */
 /**
   * @brief  Function implementing the ServoTask thread.
@@ -628,13 +636,16 @@ static void MX_GPIO_Init(void)
 void StartServoTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
+  Servo_Init();
   for(;;)
   {
-    osDelay(1);
+    Servo_Update(&latest_gPkt, &latest_fPkt);
+    osDelay(20);
   }
   /* USER CODE END 5 */
 }
+
+
 
 /* USER CODE BEGIN Header_StartCommTask */
 /**
@@ -646,13 +657,34 @@ void StartServoTask(void *argument)
 void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN StartCommTask */
-  /* Infinite loop */
+  BT_Init();
+  GSensorPacket_t gPkt;
+  FlexPacket_t    fPkt;
+  CommMode_t prev_mode = COMM_NONE;
   for(;;)
   {
-    osDelay(1);
+    CommMode_t cur_mode = SwitchMode_Get();
+    if (cur_mode == COMM_BT)
+    {
+      if (prev_mode != COMM_BT)
+        BT_FlushQueue();
+      if (BT_Recv(&gPkt, &fPkt) == BT_OK)
+      {
+        memcpy((void *)&latest_gPkt, &gPkt, sizeof(GSensorPacket_t));
+        memcpy((void *)&latest_fPkt, &fPkt, sizeof(FlexPacket_t));
+      }
+    }
+    else
+    {
+      osDelay(10);
+    }
+    prev_mode = cur_mode;
   }
   /* USER CODE END StartCommTask */
 }
+
+
+
 
 /* USER CODE BEGIN Header_StartLcdTask */
 /**
@@ -664,13 +696,101 @@ void StartCommTask(void *argument)
 void StartLcdTask(void *argument)
 {
   /* USER CODE BEGIN StartLcdTask */
-  /* Infinite loop */
+  typedef enum { LCD_NORMAL=0, LCD_MODE, LCD_WAIT_CONNECT, LCD_CONNECTED, LCD_ANGLES } LcdState_t;
+
+  LCD_Init();
+
+  LcdState_t state     = LCD_NORMAL;
+  CommMode_t prev_mode = COMM_NONE;
+  uint32_t   state_tick = 0;
+
+  LCD_ShowNormal();
+
   for(;;)
   {
-    osDelay(1);
+    CommMode_t cur_mode = SwitchMode_Get();
+
+    switch (state)
+    {
+      case LCD_NORMAL:
+        if (cur_mode != COMM_NONE)
+        {
+          LCD_ShowMode(cur_mode);
+          state_tick = osKernelGetTickCount();
+          state = LCD_MODE;
+        }
+        break;
+
+      case LCD_MODE:
+        if (cur_mode == COMM_NONE)
+        {
+          LCD_ShowNormal();
+          state = LCD_NORMAL;
+          break;
+        }
+        if (cur_mode != prev_mode)
+        {
+          LCD_ShowMode(cur_mode);
+          state_tick = osKernelGetTickCount();
+        }
+        if ((osKernelGetTickCount() - state_tick) >= 2000)
+          state = LCD_WAIT_CONNECT;
+        break;
+
+      case LCD_WAIT_CONNECT:
+        if (cur_mode == COMM_NONE)
+        {
+          LCD_ShowNormal();
+          state = LCD_NORMAL;
+          break;
+        }
+        if (cur_mode != prev_mode)
+        {
+          LCD_ShowMode(cur_mode);
+          state_tick = osKernelGetTickCount();
+          state = LCD_MODE;
+          break;
+        }
+        if (comm_connected != COMM_CONNECTED_NONE)
+        {
+          LCD_ShowConnected();
+          state_tick = osKernelGetTickCount();
+          state = LCD_CONNECTED;
+        }
+        break;
+
+      case LCD_CONNECTED:
+        if ((osKernelGetTickCount() - state_tick) >= 1000)
+        {
+          LCD_ShowAngles(servo_angles);
+          state = LCD_ANGLES;
+        }
+        break;
+
+      case LCD_ANGLES:
+        LCD_ShowAngles(servo_angles);
+        if (cur_mode == COMM_NONE)
+        {
+          LCD_ShowNormal();
+          state = LCD_NORMAL;
+        }
+        else if (cur_mode != prev_mode)
+        {
+          LCD_ShowMode(cur_mode);
+          state_tick = osKernelGetTickCount();
+          state = LCD_MODE;
+        }
+        break;
+    }
+
+    prev_mode = cur_mode;
+    osDelay(100);
   }
   /* USER CODE END StartLcdTask */
 }
+
+
+
 
 /* USER CODE BEGIN Header_StartSwitchTask */
 /**
@@ -682,13 +802,23 @@ void StartLcdTask(void *argument)
 void StartSwitchTask(void *argument)
 {
   /* USER CODE BEGIN StartSwitchTask */
-  /* Infinite loop */
+  CommMode_t prev_mode = COMM_NONE;
   for(;;)
   {
-    osDelay(1);
+    SwitchMode_Update();
+    CommMode_t cur_mode = SwitchMode_Get();
+    if (cur_mode != prev_mode)
+    {
+      comm_connected = COMM_CONNECTED_NONE;
+      prev_mode = cur_mode;
+    }
+    osDelay(50);
   }
   /* USER CODE END StartSwitchTask */
 }
+
+
+
 
 /**
   * @brief  Period elapsed callback in non blocking mode
