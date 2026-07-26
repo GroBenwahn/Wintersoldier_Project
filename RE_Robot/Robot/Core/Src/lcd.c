@@ -17,7 +17,8 @@
 /* PCF8574에 1바이트 I2C 전송 */
 static void PCF8574_Write(uint8_t data)
 {
-    HAL_I2C_Master_Transmit(&hi2c1, LCD_ADDR, &data, 1, 5);
+    HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(&hi2c1, LCD_ADDR, &data, 1, 5);
+    g_robotStatusPkt.error_LCD = (status == HAL_OK) ? HW_STATUS_CONNECTED : HW_STATUS_DISCONNECTED;
 }
 
 

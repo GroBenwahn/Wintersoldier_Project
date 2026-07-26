@@ -10,9 +10,9 @@
 /* CAN 메시지 ID */
 #define CAN_MSG_SENSOR      0x100  /* Hand → Robot: G센서 + 높낮이 스위치 */
 #define CAN_MSG_FLEX        0x101  /* Hand → Robot: Flex 센서 */
-#define CAN_MSG_ERROR_HAND  0x102  /* Robot → Hand: 에러 발생 */
-#define CAN_MSG_SERVO_DBG   0x200  /* Robot → (디버그): 서보 6개 현재 각도 */
-#define CAN_MSG_ERROR_ROBOT 0x201  /* Hand → Robot: 에러 발생 */
+#define CAN_MSG_ERROR_HAND  0x102  /* Hand → Robot: Hand 자체 상태(Flex/G센서) */
+#define CAN_MSG_SERVO_DBG   0x200  /* Robot → Hand: 서보 6개 현재 각도 */
+#define CAN_MSG_ERROR_ROBOT 0x201  /* Robot → Hand: Robot 자체 상태(LCD/서보 회로) */
 
 
 
@@ -23,7 +23,6 @@ typedef enum
     HEIGHT_UP   = 1,   /* PB4=LOW  → 위로 */
     HEIGHT_DOWN = 2    /* PB5=LOW  → 아래로 */
 } HeightSwitch_t;
-
 
 /*
  * 패킷 1 - G센서 + 높낮이 스위치 (CAN ID: 0x001)
@@ -62,10 +61,8 @@ typedef struct
 
 
 /*
- * 패킷 3 - 서보 디버그 피드백 (CAN ID: 0x003)
+ * 패킷 3 - 서보 디버그 피드백 (CAN ID: 0x200, Robot→Hand)
  * 8바이트 = CAN 클래식 1프레임
- *
- * Robot → CAN 분석기 전용 (컨트롤러로는 전송 안 함)
  */
 #pragma pack(1)
 typedef struct 
@@ -83,10 +80,52 @@ typedef struct
 
 
 
+/* 하드웨어 상태 값 (연결/센서 오류 구분) */
+typedef enum
+{
+    HW_STATUS_DISCONNECTED = 0,
+    HW_STATUS_CONNECTED    = 1,
+    HW_STATUS_SENSOR_ERROR = 3,
+} HwStatus_t;
+
+/*
+ * 패킷 4 - Hand 자체 상태 (CAN ID: 0x102, Hand→Robot)
+ * 8바이트 = CAN 클래식 1프레임
+ */
+#pragma pack(1)
+typedef struct
+{
+    uint8_t error_Flex;     /* HwStatus_t: Flex 센서(ADC/DMA) 상태 */
+    uint8_t error_Gsensor;  /* HwStatus_t: G센서(ADXL345, I2C) 상태 */
+    uint8_t reserved[5];    /* 예약 (0으로 채움) */
+    uint8_t checksum;       /* XOR(byte 0 ~ 6) */
+} HandStatusPacket_t;       /* 총 8바이트 */
+#pragma pack()
+
+
+/*
+ * 패킷 5 - Robot 자체 상태 (CAN ID: 0x201, Robot→Hand)
+ * 8바이트 = CAN 클래식 1프레임. 서보 이상은 한 번에 1개씩만 보고.
+ */
+#pragma pack(1)
+typedef struct
+{
+    uint8_t error_LCD;           /* HwStatus_t: LCD(PCF8574, I2C) 상태 */
+    uint8_t status_servo;        /* 이상 있는 서보 인덱스 0~5 (servo.h의 SERVO_WAIST~SERVO_GRIP과 동일 값) */
+    uint8_t circuit_open_servo;  /* status_servo가 가리키는 서보의 개방(단선) 여부: 0=정상, 1=개방 */
+    uint8_t circuit_close_servo; /* status_servo가 가리키는 서보의 단락 여부: 0=정상, 1=단락 */
+    uint8_t reserved[3];         /* 예약 (0으로 채움) */
+    uint8_t checksum;            /* XOR(byte 0 ~ 6) */
+} RobotStatusPacket_t;           /* 총 8바이트 */
+#pragma pack()
+
+
 /* 패킷 크기 */
-#define GSENSOR_PKT_SIZE   ((uint8_t)sizeof(GSensorPacket_t))   // 8
-#define FLEX_PKT_SIZE      ((uint8_t)sizeof(FlexPacket_t))      // 8
-#define SERVO_DBG_PKT_SIZE ((uint8_t)sizeof(ServoDbgPacket_t))  // 8
+#define GSENSOR_PKT_SIZE      ((uint8_t)sizeof(GSensorPacket_t))      // 8
+#define FLEX_PKT_SIZE         ((uint8_t)sizeof(FlexPacket_t))         // 8
+#define SERVO_DBG_PKT_SIZE    ((uint8_t)sizeof(ServoDbgPacket_t))     // 8
+#define HAND_STATUS_PKT_SIZE  ((uint8_t)sizeof(HandStatusPacket_t))   // 8
+#define ROBOT_STATUS_PKT_SIZE ((uint8_t)sizeof(RobotStatusPacket_t))  // 8
 
 
 /* UART 전체 프레임 크기 = START(1) + DATA(8) + END(1) = 10 */

@@ -10,9 +10,9 @@ extern FDCAN_HandleTypeDef hfdcan1;
 /* CAN 연결 상태 */
 extern uint8_t can_offline;
 
-/* CAN 메시지 ID 단축 이름 */
-#define CAN_MSG_SENSOR  CAN_MSG_ID_SENSOR
-#define CAN_MSG_FLEX    CAN_MSG_ID_FLEX
+/* 최근 수신 패킷 (CAN RX 인터럽트에서 갱신, Robot으로부터) */
+extern volatile ServoDbgPacket_t    g_canRxServoDbgPkt;
+extern volatile RobotStatusPacket_t g_canRxRobotStatusPkt;
 
 /* 함수 선언 */
 void CAN_Comm_Init(void);

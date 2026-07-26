@@ -20,7 +20,12 @@ extern TIM_HandleTypeDef htim3;
 /* 현재 서보 출력 각도 배열 (-90~+90도), LcdTask에서 읽음 */
 extern int8_t servo_angles[6];
 
+/* 최신 패킹된 서보 디버그 패킷 (CAN_MSG_SERVO_DBG 0x200용, Callback_100ms가 100ms마다 송신) */
+extern ServoDbgPacket_t g_servoDbgPkt;
+
 void Servo_Init(void);
 void Servo_Update(const volatile GSensorPacket_t *gPkt, const volatile FlexPacket_t *fPkt);
+void Servo_PackDbg(ServoDbgPacket_t *pkt);
+void Servo_ReportFault(uint8_t servo_idx, uint8_t circuit_open, uint8_t circuit_close);
 
 #endif /* __SERVO_H */
