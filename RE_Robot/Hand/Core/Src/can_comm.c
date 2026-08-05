@@ -1,10 +1,15 @@
 #include "can_comm.h"
 #include "cmsis_os.h"
+#include <string.h>
 
 #define CAN_RECOVERY_INTERVAL_MS  2000
 
 uint8_t  can_offline = 0;     /* can 연결 상태를 확인 */
 static uint32_t can_retry_tick = 0;
+
+/* 최근 수신 패킷 저장소 (ISR에서 갱신되므로 volatile) */
+volatile ServoDbgPacket_t    g_canRxServoDbgPkt    = {0};
+volatile RobotStatusPacket_t g_canRxRobotStatusPkt = {0};
 
 
 /* 공통 TX 헤더 생성 (Identifier만 다르고 나머지는 고정, 호출자마다 지역변수라 여러 곳에서 동시에 불러도 안전) */
@@ -25,11 +30,45 @@ static FDCAN_TxHeaderTypeDef CAN_MakeTxHeader(uint32_t id)
 }
 
 
-/* CAN 초기화 */
+/* CAN 초기화: 필터 없이 모든 Standard ID를 FIFO0으로 받고, 소프트웨어 switch-case로 ID 구분 */
 void CAN_Comm_Init(void)
 {
+    HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0,
+                                  FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
+    HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
     HAL_FDCAN_Start(&hfdcan1);
+}
+
+
+/* CAN Rx FIFO0 수신 콜백 (인터럽트) — Robot으로부터 SERVO_DBG/ERROR_ROBOT 수신 */
+void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
+{
+    if (!(RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE)) return;
+
+    FDCAN_RxHeaderTypeDef rxHeader;
+    uint8_t data[8];
+
+    if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rxHeader, data) != HAL_OK) return;
+
+    /* 체크섬 검증 (byte 0~6 XOR = byte 7) */
+    uint8_t cs = 0;
+    for (int i = 0; i < 7; i++) cs ^= data[i];
+    if (cs != data[7]) return;
+
+    switch (rxHeader.Identifier)
+    {
+        case CAN_MSG_SERVO_DBG:
+            memcpy((void *)&g_canRxServoDbgPkt, data, 8);
+            break;
+
+        case CAN_MSG_ERROR_ROBOT:
+            memcpy((void *)&g_canRxRobotStatusPkt, data, 8);
+            break;
+
+        default:
+            break;
+    }
 }
 
 
@@ -61,6 +100,7 @@ void CAN_Send(uint32_t id, const uint8_t *data)
     {
         case CAN_MSG_SENSOR:
         case CAN_MSG_FLEX:
+        case CAN_MSG_ERROR_HAND:
             CAN_SendFrame(id, data);
             break;
 
@@ -82,6 +122,7 @@ void CAN_Recovery(void)
     HAL_FDCAN_Start(&hfdcan1);
 
     FDCAN_TxHeaderTypeDef tx_header = CAN_MakeTxHeader(CAN_MSG_SENSOR);
+<<<<<<< HEAD
     uint8_t probe[8] = {0};
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, probe);
     osDelay(5);
@@ -90,6 +131,15 @@ void CAN_Recovery(void)
     HAL_FDCAN_GetErrorCounters(&hfdcan1, &errCnt);
 
     if (errCnt.TxErrorCnt == 0)
+=======
+    FDCAN_ErrorCountersTypeDef counters;
+    uint8_t probe[8] = {0};
+    HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, probe);
+    osDelay(5);
+    HAL_FDCAN_GetErrorCounters(&hfdcan1, &counters);
+
+    if (counters.TxErrorCnt == 0)
+>>>>>>> f898ed6684598243425a488b2c8abcd53dad3f7c
     {
         can_offline = 0;    /* 복구 성공 */
     }

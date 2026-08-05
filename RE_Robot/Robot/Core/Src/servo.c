@@ -1,10 +1,14 @@
 #include "servo.h"
+#include "can_comm.h"
 
 /* Waist 이동 속도: ServoTask 1회(20ms)당 1도 이동 = 50도/초 */
 #define WAIST_STEP  1
 
 /* 현재 서보 출력 각도 (-90~+90도), LcdTask에서 읽음 */
 int8_t servo_angles[6] = {0};
+
+/* 최신 패킹된 서보 디버그 패킷 (0x200용) */
+ServoDbgPacket_t g_servoDbgPkt = {0};
 
 /* Waist 현재 누적 위치 */
 static int8_t waist_pos = 0;
@@ -97,4 +101,31 @@ void Servo_Update(const volatile GSensorPacket_t *gPkt, const volatile FlexPacke
     int8_t grip = clamp8((int32_t)fPkt->flex1 * 90 / 4095, 0, 90);
     servo_angles[SERVO_GRIP] = grip;
     SetPWM(&htim2, TIM_CHANNEL_1, grip);
+}
+
+
+/* servo_angles[6] → ServoDbgPacket_t 조립 (체크섬 포함, Callback_100ms가 100ms마다 호출) */
+void Servo_PackDbg(ServoDbgPacket_t *pkt)
+{
+    pkt->servo1   = servo_angles[0];
+    pkt->servo2   = servo_angles[1];
+    pkt->servo3   = servo_angles[2];
+    pkt->servo4   = servo_angles[3];
+    pkt->servo5   = servo_angles[4];
+    pkt->servo6   = servo_angles[5];
+    pkt->reserved = 0;
+    pkt->checksum = CALC_CHECKSUM(pkt);
+}
+
+
+/*
+ * 서보 개방(단선)/단락 상태 보고 훅 — g_robotStatusPkt 필드만 갱신함(송신은 Callback_1000ms가 담당).
+ * 지금은 개방/단락을 실제로 판정할 하드웨어(전류 감지 등)가 없어서 호출하는 곳이 없음.
+ * 나중에 감지 로직이 생기면 여기서 호출하면 됨.
+ */
+void Servo_ReportFault(uint8_t servo_idx, uint8_t circuit_open, uint8_t circuit_close)
+{
+    g_robotStatusPkt.status_servo        = servo_idx;
+    g_robotStatusPkt.circuit_open_servo  = circuit_open;
+    g_robotStatusPkt.circuit_close_servo = circuit_close;
 }

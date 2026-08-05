@@ -30,5 +30,6 @@ void Sensor_ReadAll(SensorData_t *data);
 void Sensor_PackGSensor(const SensorData_t *data, GSensorPacket_t *pkt);
 void Sensor_PackFlex(const SensorData_t *data, FlexPacket_t *pkt);
 void Sensor_ResetFlexBaseline(void);
+void Sensor_SendStatus(void);
 
 #endif /* __SENSOR_H */

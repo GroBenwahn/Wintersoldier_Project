@@ -1,4 +1,5 @@
 #include "sensor.h"
+#include "can_comm.h"
 #include "cmsis_os.h"
 #include <math.h>
 
@@ -28,6 +29,9 @@ static uint16_t prev_flex[3] = {0};
 /* G센서 착용 자세 오프셋 (전원 인가 시 자세 = 0 기준) */
 static int16_t roll_offset  = 0;
 static int16_t pitch_offset = 0;
+
+/* Hand 자체 상태 (0x102 ERROR_HAND로 1000ms마다 주기 송신, Timer100ms/Callback_100ms 담당) */
+static HandStatusPacket_t g_handStatusPkt = { HW_STATUS_CONNECTED, HW_STATUS_CONNECTED, {0}, 0 };
 
 
 
@@ -90,8 +94,11 @@ void Sensor_ReadAll(SensorData_t *data)
     /* --- G센서 읽기 --- */
     uint8_t raw[6] = {0};
     uint8_t reg = ADXL345_DATAX0;
-    HAL_I2C_Master_Transmit(&hi2c1, ADXL345_ADDR, &reg, 1, 10);
-    HAL_I2C_Master_Receive (&hi2c1, ADXL345_ADDR, raw,  6, 10);
+    HAL_StatusTypeDef i2c_tx = HAL_I2C_Master_Transmit(&hi2c1, ADXL345_ADDR, &reg, 1, 10);
+    HAL_StatusTypeDef i2c_rx = HAL_I2C_Master_Receive (&hi2c1, ADXL345_ADDR, raw,  6, 10);
+
+    g_handStatusPkt.error_Gsensor = (i2c_tx == HAL_OK && i2c_rx == HAL_OK) ?
+                                     HW_STATUS_CONNECTED : HW_STATUS_DISCONNECTED;
 
     int16_t ax = (int16_t)((raw[1] << 8) | raw[0]);
     int16_t ay = (int16_t)((raw[3] << 8) | raw[2]);
@@ -151,6 +158,14 @@ void Sensor_ResetFlexBaseline(void)
 }
 
 
+/* Hand 자체 상태(g_handStatusPkt)를 CAN(0x102)으로 송신 (Callback_100ms가 1000ms마다 호출) */
+void Sensor_SendStatus(void)
+{
+    g_handStatusPkt.checksum = CALC_CHECKSUM(&g_handStatusPkt);
+    CAN_Send(CAN_MSG_ERROR_HAND, (const uint8_t *)&g_handStatusPkt);
+}
+
+
 /* G센서 INT1 (PA7) EXTI 콜백 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -182,5 +197,17 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         {
             flex_changed = 1;
         }
+
+        g_handStatusPkt.error_Flex = HW_STATUS_CONNECTED;
+    }
+}
+
+
+/* Flex ADC/DMA 에러 콜백 */
+void HAL_ADC_ErrorCallback(ADC_HandleTypeDef *hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        g_handStatusPkt.error_Flex = HW_STATUS_DISCONNECTED;
     }
 }

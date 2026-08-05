@@ -26,6 +26,7 @@
 #include "sensor.h"
 #include "bluetooth.h"
 #include "can_comm.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -96,6 +97,15 @@ const osTimerAttr_t Timer100ms_attributes = {
 };
 /* USER CODE BEGIN PV */
 static SensorData_t g_sensorData; /* Callback_10ms가 갱신, BT(CommTask)/CAN 양쪽에서 공유 */
+
+static GSensorPacket_t g_gsensorPkt;       /* canonical: 최신 패킹된 G센서 패킷 (Live Expression 확인용) */
+static FlexPacket_t    g_flexPkt;          /* canonical: 최신 패킹된 Flex 패킷 */
+
+static GSensorPacket_t g_canTxGSensorPkt;  /* CAN 송신 직전 복사본 */
+static FlexPacket_t    g_canTxFlexPkt;
+
+static GSensorPacket_t g_btTxGSensorPkt;   /* BT 송신 직전 복사본 */
+static FlexPacket_t    g_btTxFlexPkt;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -184,6 +194,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   osTimerStart(Timer10msHandle, 10); /* CAN 주기 송신 시작 */
+  osTimerStart(Timer100msHandle, 1000); /* Hand 상태(0x102) 주기 송신 — 이름은 Timer100ms지만 1000ms로 재활용 */
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
@@ -574,6 +585,7 @@ void StartCommTask(void *argument)
   /* USER CODE BEGIN 5 */
   CAN_Comm_Init(); /* CAN 버스 활성화 (Bus-Off 알림 등록 + 송신 시작) */
 
+<<<<<<< HEAD
   /* [TEST MODE] Flex1(PA0)만 실측, 나머지는 미연결 상태 그대로. 500ms마다 실제 센서값을 BT로 송신 (CAN은 Callback_10ms가 전담) */
   GSensorPacket_t gPkt;
   FlexPacket_t    fPkt;
@@ -583,6 +595,20 @@ void StartCommTask(void *argument)
     Sensor_PackGSensor(&g_sensorData, &gPkt); /* Callback_10ms가 갱신해둔 최신값 재사용 */
     Sensor_PackFlex(&g_sensorData, &fPkt);
     BT_Send(&gPkt, &fPkt);
+=======
+  uint8_t sig[8] = {0};
+
+  for(;;)
+  {
+    /* SensorTask 또는 SwitchTask가 큐에 신호를 넣으면 여기서 깨어남 */
+    /* 100ms 동안 신호 없으면 타임아웃 후 CAN_Recovery()만 실행 */
+    if (osMessageQueueGet(packetQueueHandle, sig, NULL, 100) == osOK)
+    {
+      /* Callback_10ms가 갱신해둔 canonical 패킷을 BT 전용 변수로 복사해서 송신 (CAN은 Callback_10ms가 전담) */
+      memcpy(&g_btTxGSensorPkt, &g_gsensorPkt, sizeof(g_gsensorPkt));
+      memcpy(&g_btTxFlexPkt,    &g_flexPkt,    sizeof(g_flexPkt));
+      BT_Send(&g_btTxGSensorPkt, &g_btTxFlexPkt);
+>>>>>>> f898ed6684598243425a488b2c8abcd53dad3f7c
 
     osDelay(500);
     CAN_Recovery(); /* CAN 끊김 상태면 2초마다 재연결 시도 */
@@ -655,17 +681,24 @@ void Callback_Once(void *argument)
 void Callback_10ms(void *argument)
 {
   /* USER CODE BEGIN Callback_10ms */
+<<<<<<< HEAD
   /* [TEST MODE] Flex1(PA0)만 실측, G센서/높낮이스위치/Flex2·3은 미연결 상태 (I2C는 타임아웃 후 0 처리, ADC는 노이즈값) */
   GSensorPacket_t gPkt;
   FlexPacket_t    fPkt;
 
   Sensor_ReadAll(&g_sensorData); /* I2C(G센서, 미연결) 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기 */
+=======
+  Sensor_ReadAll(&g_sensorData); /* I2C(G센서) 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기 */
+>>>>>>> f898ed6684598243425a488b2c8abcd53dad3f7c
 
-  Sensor_PackGSensor(&g_sensorData, &gPkt);
-  Sensor_PackFlex(&g_sensorData, &fPkt);
+  Sensor_PackGSensor(&g_sensorData, &g_gsensorPkt);
+  Sensor_PackFlex(&g_sensorData, &g_flexPkt);
 
-  CAN_Send(CAN_MSG_SENSOR, (const uint8_t *)&gPkt);
-  CAN_Send(CAN_MSG_FLEX,   (const uint8_t *)&fPkt);
+  memcpy(&g_canTxGSensorPkt, &g_gsensorPkt, sizeof(g_gsensorPkt));
+  memcpy(&g_canTxFlexPkt,    &g_flexPkt,    sizeof(g_flexPkt));
+
+  CAN_Send(CAN_MSG_SENSOR, (const uint8_t *)&g_canTxGSensorPkt);
+  CAN_Send(CAN_MSG_FLEX,   (const uint8_t *)&g_canTxFlexPkt);
   /* USER CODE END Callback_10ms */
 }
 
@@ -692,7 +725,7 @@ static void BuildTestPackets(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
 void Callback_100ms(void *argument)
 {
   /* USER CODE BEGIN Callback_100ms */
-
+  Sensor_SendStatus(); /* Hand 자체 상태(0x102) 송신 — 타이머는 1000ms로 시작됨 */
   /* USER CODE END Callback_100ms */
 }
 

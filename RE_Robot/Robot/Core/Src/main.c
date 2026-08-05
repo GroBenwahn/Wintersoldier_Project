@@ -90,8 +90,19 @@ osMessageQueueId_t recvQueueHandle;
 const osMessageQueueAttr_t recvQueue_attributes = {
   .name = "recvQueue"
 };
+/* Definitions for Timer100ms (SERVO_DBG 0x200 송신용) */
+osTimerId_t Timer100msHandle;
+const osTimerAttr_t Timer100ms_attributes = {
+  .name = "Timer100ms"
+};
+/* Definitions for Timer1000ms (ERROR_ROBOT 0x201 송신용) */
+osTimerId_t Timer1000msHandle;
+const osTimerAttr_t Timer1000ms_attributes = {
+  .name = "Timer1000ms"
+};
 /* USER CODE BEGIN PV */
-
+static GSensorPacket_t g_btRxGSensorPkt; /* BT에서 마지막으로 수신한 원본 (채널별 구분용, Live Expression 확인용) */
+static FlexPacket_t    g_btRxFlexPkt;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,6 +118,8 @@ void StartServoTask(void *argument);
 void StartCommTask(void *argument);
 void StartLcdTask(void *argument);
 void StartSwitchTask(void *argument);
+void Callback_100ms(void *argument);
+void Callback_1000ms(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -167,8 +180,16 @@ int main(void)
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* creation of Timer100ms */
+  Timer100msHandle = osTimerNew(Callback_100ms, osTimerPeriodic, NULL, &Timer100ms_attributes);
+
+  /* creation of Timer1000ms */
+  Timer1000msHandle = osTimerNew(Callback_1000ms, osTimerPeriodic, NULL, &Timer1000ms_attributes);
+
   /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
+  osTimerStart(Timer100msHandle, 100);   /* SERVO_DBG(0x200) 주기 송신 시작 */
+  osTimerStart(Timer1000msHandle, 1000); /* ERROR_ROBOT(0x201) 주기 송신 시작 */
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
@@ -292,7 +313,7 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.DataSyncJumpWidth = 1;
   hfdcan1.Init.DataTimeSeg1 = 1;
   hfdcan1.Init.DataTimeSeg2 = 1;
-  hfdcan1.Init.StdFiltersNbr = 1;
+  hfdcan1.Init.StdFiltersNbr = 0;
   hfdcan1.Init.ExtFiltersNbr = 0;
   hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
@@ -658,8 +679,6 @@ void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN StartCommTask */
   BT_Init();
-  GSensorPacket_t gPkt;
-  FlexPacket_t    fPkt;
   CommMode_t prev_mode = COMM_NONE;
   for(;;)
   {
@@ -668,10 +687,10 @@ void StartCommTask(void *argument)
     {
       if (prev_mode != COMM_BT)
         BT_FlushQueue();
-      if (BT_Recv(&gPkt, &fPkt) == BT_OK)
+      if (BT_Recv(&g_btRxGSensorPkt, &g_btRxFlexPkt) == BT_OK)
       {
-        memcpy((void *)&latest_gPkt, &gPkt, sizeof(GSensorPacket_t));
-        memcpy((void *)&latest_fPkt, &fPkt, sizeof(FlexPacket_t));
+        memcpy((void *)&latest_gPkt, &g_btRxGSensorPkt, sizeof(GSensorPacket_t));
+        memcpy((void *)&latest_fPkt, &g_btRxFlexPkt, sizeof(FlexPacket_t));
       }
     }
     else
@@ -679,6 +698,7 @@ void StartCommTask(void *argument)
       osDelay(10);
     }
     prev_mode = cur_mode;
+    CAN_Recovery(); /* CAN 끊김 상태면 2초마다 재연결 시도 */
   }
   /* USER CODE END StartCommTask */
 }
@@ -833,6 +853,19 @@ void StartSwitchTask(void *argument)
     osDelay(50);
   }
   /* USER CODE END StartSwitchTask */
+}
+
+/* Callback_100ms function — SERVO_DBG(0x200) 100ms 주기 송신 */
+void Callback_100ms(void *argument)
+{
+  Servo_PackDbg(&g_servoDbgPkt);
+  CAN_Send(CAN_MSG_SERVO_DBG, (const uint8_t *)&g_servoDbgPkt);
+}
+
+/* Callback_1000ms function — ERROR_ROBOT(0x201) 1000ms 주기 송신 */
+void Callback_1000ms(void *argument)
+{
+  RobotStatus_Send();
 }
 
 
