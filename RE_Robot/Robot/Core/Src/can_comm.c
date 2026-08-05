@@ -13,20 +13,30 @@ volatile uint8_t comm_connected = COMM_CONNECTED_NONE;
 /* CAN 초기화: 수신 필터 + 알림 등록 + 시작 */
 void CAN_Comm_Init(void)
 {
-    /* 표준 ID 수신 필터: 0x001(GSensor) ~ 0x002(Flex) → Rx FIFO0 */
+    /* 표준 ID 수신 필터: 0x100(GSensor), 0x101(Flex) 두 ID를 정확히 매칭 */
     FDCAN_FilterTypeDef filter;
     filter.IdType       = FDCAN_STANDARD_ID;
     filter.FilterIndex  = 0;
-    filter.FilterType   = FDCAN_FILTER_RANGE;
+    filter.FilterType   = FDCAN_FILTER_DUAL;
     filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     filter.FilterID1    = CAN_MSG_SENSOR;       /* 0x100 */
     filter.FilterID2    = CAN_MSG_FLEX;        /* 0x101 */
     HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
     HAL_FDCAN_Start(&hfdcan1);
 }
 
+
+/* Bus-Off 인터럽트 콜백: 재시작해서 복구 */
+void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusITs)
+{
+    if (ErrorStatusITs & FDCAN_IT_BUS_OFF)
+    {
+        HAL_FDCAN_Start(hfdcan);
+    }
+}
 
 
 /* CAN Rx FIFO0 수신 콜백 (인터럽트) */
@@ -38,24 +48,27 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
     FDCAN_RxHeaderTypeDef rxHeader;
     uint8_t data[8];
 
-    if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rxHeader, data) != HAL_OK) return;
-
-    /* 체크섬 검증 (byte 0~6 XOR = byte 7) */
-    uint8_t cs = 0;
-    for (int i = 0; i < 7; i++) cs ^= data[i];
-    
-    if (cs != data[7]) return;
-
-    if (rxHeader.Identifier == CAN_MSG_SENSOR)
+    /* HAL_FDCAN_IRQHandler는 인터럽트 1번당 이 콜백을 1번만 호출하므로,
+     * FIFO0에 남은 메시지가 없어질 때까지 반복해서 다 꺼냄 */
+    while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0)
     {
-        memcpy((void *)&latest_gPkt, data, 8);
-        comm_connected = COMM_CONNECTED_CAN;
-    }
-    else if (rxHeader.Identifier == CAN_MSG_FLEX)
-    {
-        memcpy((void *)&latest_fPkt, data, 8);
-        comm_connected = COMM_CONNECTED_CAN;
+        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rxHeader, data) != HAL_OK) break;
+
+        /* 체크섬 검증 (byte 0~6 XOR = byte 7) */
+        uint8_t cs = 0;
+        for (int i = 0; i < 7; i++) cs ^= data[i];
+
+        if (cs != data[7]) continue;
+
+        if (rxHeader.Identifier == CAN_MSG_SENSOR)
+        {
+            memcpy((void *)&latest_gPkt, data, 8);
+            comm_connected = COMM_CONNECTED_CAN;
+        }
+        else if (rxHeader.Identifier == CAN_MSG_FLEX)
+        {
+            memcpy((void *)&latest_fPkt, data, 8);
+            comm_connected = COMM_CONNECTED_CAN;
+        }
     }
 }
-
-

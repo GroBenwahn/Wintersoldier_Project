@@ -114,7 +114,8 @@ void Callback_10ms(void *argument);
 void Callback_100ms(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+/* [TEST MODE] 센서 없이 CAN/BT 통신 확인용 더미 패킷 생성 */
+static void BuildTestPackets(GSensorPacket_t *gPkt, FlexPacket_t *fPkt);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -197,11 +198,12 @@ int main(void)
   /* creation of CommTask */
   CommTaskHandle = osThreadNew(StartCommTask, NULL, &CommTask_attributes);
 
+  /* [TEST MODE] Flex 센서 1개(PA0)만 확인하려고 SensorTask는 다시 켬 (G센서는 아직 미연결, I2C 타임아웃만 나고 안전하게 무시됨) */
   /* creation of SensorTask */
   SensorTaskHandle = osThreadNew(StartSensorTask, NULL, &SensorTask_attributes);
 
   /* creation of SwitchTask */
-  SwitchTaskHandle = osThreadNew(StartSwitchTask, NULL, &SwitchTask_attributes);
+  // SwitchTaskHandle = osThreadNew(StartSwitchTask, NULL, &SwitchTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -531,24 +533,25 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /* [TEST MODE] 센서 제거 테스트 중이라 G센서/높낮이스위치 EXTI 비활성화 (PA7 플로팅으로 인한 인터럽트 폭주 방지) */
   /*Configure GPIO pin : G_Sensor_INT_Pin */
-  GPIO_InitStruct.Pin = G_Sensor_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(G_Sensor_INT_GPIO_Port, &GPIO_InitStruct);
+  // GPIO_InitStruct.Pin = G_Sensor_INT_Pin;
+  // GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  // GPIO_InitStruct.Pull = GPIO_NOPULL;
+  // HAL_GPIO_Init(G_Sensor_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : Up_Switch_Pin Down_Switch_Pin */
-  GPIO_InitStruct.Pin = Up_Switch_Pin|Down_Switch_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  // GPIO_InitStruct.Pin = Up_Switch_Pin|Down_Switch_Pin;
+  // GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  // GPIO_InitStruct.Pull = GPIO_PULLUP;
+  // HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+  // HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
+  // HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  // HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  // HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -571,26 +574,17 @@ void StartCommTask(void *argument)
   /* USER CODE BEGIN 5 */
   CAN_Comm_Init(); /* CAN 버스 활성화 (Bus-Off 알림 등록 + 송신 시작) */
 
-  GSensorPacket_t gPkt; /* G센서 + 높낮이 스위치 패킷 */
-  FlexPacket_t    fPkt; /* Flex 센서 패킷 */
-  uint8_t         sig[8] = {0};
+  /* [TEST MODE] Flex1(PA0)만 실측, 나머지는 미연결 상태 그대로. 500ms마다 실제 센서값을 BT로 송신 (CAN은 Callback_10ms가 전담) */
+  GSensorPacket_t gPkt;
+  FlexPacket_t    fPkt;
 
   for(;;)
   {
-    /* SensorTask 또는 SwitchTask가 큐에 신호를 넣으면 여기서 깨어남 */
-    /* 100ms 동안 신호 없으면 타임아웃 후 CAN_Recovery()만 실행 */
-    if (osMessageQueueGet(packetQueueHandle, sig, NULL, 100) == osOK)
-    {
-      /* Callback_10ms가 갱신해둔 최신 원시값을 패킹만 해서 BT로 송신 (CAN은 Callback_10ms가 전담) */
-      Sensor_PackGSensor(&g_sensorData, &gPkt);
-      Sensor_PackFlex(&g_sensorData, &fPkt);
-      BT_Send(&gPkt, &fPkt);
+    Sensor_PackGSensor(&g_sensorData, &gPkt); /* Callback_10ms가 갱신해둔 최신값 재사용 */
+    Sensor_PackFlex(&g_sensorData, &fPkt);
+    BT_Send(&gPkt, &fPkt);
 
-      gsensor_changed = 0;
-      flex_changed    = 0;
-      switch_changed  = 0;
-      Sensor_ResetFlexBaseline();
-    }
+    osDelay(500);
     CAN_Recovery(); /* CAN 끊김 상태면 2초마다 재연결 시도 */
   }
   /* USER CODE END 5 */
@@ -661,10 +655,11 @@ void Callback_Once(void *argument)
 void Callback_10ms(void *argument)
 {
   /* USER CODE BEGIN Callback_10ms */
+  /* [TEST MODE] Flex1(PA0)만 실측, G센서/높낮이스위치/Flex2·3은 미연결 상태 (I2C는 타임아웃 후 0 처리, ADC는 노이즈값) */
   GSensorPacket_t gPkt;
   FlexPacket_t    fPkt;
 
-  Sensor_ReadAll(&g_sensorData); /* I2C(G센서) 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기 */
+  Sensor_ReadAll(&g_sensorData); /* I2C(G센서, 미연결) 블로킹 읽기 + ADC 버퍼 복사 + GPIO 읽기 */
 
   Sensor_PackGSensor(&g_sensorData, &gPkt);
   Sensor_PackFlex(&g_sensorData, &fPkt);
@@ -672,6 +667,25 @@ void Callback_10ms(void *argument)
   CAN_Send(CAN_MSG_SENSOR, (const uint8_t *)&gPkt);
   CAN_Send(CAN_MSG_FLEX,   (const uint8_t *)&fPkt);
   /* USER CODE END Callback_10ms */
+}
+
+/* [TEST MODE] 센서 없이 CAN/BT 통신만 확인하기 위한 더미 패킷 생성 (HAL_GetTick 기반으로 값이 계속 변함) */
+static void BuildTestPackets(GSensorPacket_t *gPkt, FlexPacket_t *fPkt)
+{
+  uint32_t t = HAL_GetTick();
+
+  gPkt->roll       = (int16_t)((t / 5) % 3601) - 1800; /* -180.0~+180.0도 왕복 스윕 */
+  gPkt->pitch      = 0;
+  gPkt->height_sw  = HEIGHT_STOP;
+  gPkt->reserved[0] = 0;
+  gPkt->reserved[1] = 0;
+  gPkt->checksum   = CALC_CHECKSUM(gPkt);
+
+  fPkt->flex1      = (uint16_t)(t % 4096); /* 0~4095 톱니파 */
+  fPkt->flex2      = 0;
+  fPkt->flex3      = 0;
+  fPkt->reserved[0] = 0;
+  fPkt->checksum   = CALC_CHECKSUM(fPkt);
 }
 
 /* Callback_100ms function */

@@ -82,13 +82,14 @@ void CAN_Recovery(void)
     HAL_FDCAN_Start(&hfdcan1);
 
     FDCAN_TxHeaderTypeDef tx_header = CAN_MakeTxHeader(CAN_MSG_SENSOR);
-    FDCAN_ProtocolStatusTypeDef status;
     uint8_t probe[8] = {0};
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, probe);
     osDelay(5);
-    HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
 
-    if (status.TxErrorCnt == 0)
+    FDCAN_ErrorCountersTypeDef errCnt;
+    HAL_FDCAN_GetErrorCounters(&hfdcan1, &errCnt);
+
+    if (errCnt.TxErrorCnt == 0)
     {
         can_offline = 0;    /* 복구 성공 */
     }

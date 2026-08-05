@@ -703,12 +703,30 @@ void StartLcdTask(void *argument)
   LcdState_t state     = LCD_NORMAL;
   CommMode_t prev_mode = COMM_NONE;
   uint32_t   state_tick = 0;
+  uint32_t   reinit_tick = 0; /* 서보 PWM 노이즈로 LCD가 깨져도 스스로 복구되도록 주기적 재초기화 */
 
   LCD_ShowNormal();
 
   for(;;)
   {
     CommMode_t cur_mode = SwitchMode_Get();
+
+    /* [노이즈 복구] 3초(100ms*30)마다 LCD 컨트롤러를 강제 재초기화하고 현재 화면을 다시 그림.
+     * I2C 쓰기 실패를 개별적으로 감지하지 않아도, 노이즈로 깨진 상태가 최대 3초 안에 스스로 복구됨. */
+    reinit_tick++;
+    if (reinit_tick >= 30)
+    {
+      reinit_tick = 0;
+      LCD_Init();
+      switch (state)
+      {
+        case LCD_NORMAL:       LCD_ShowNormal();          break;
+        case LCD_MODE:
+        case LCD_WAIT_CONNECT: LCD_ShowMode(cur_mode);    break;
+        case LCD_CONNECTED:    LCD_ShowConnected();       break;
+        case LCD_ANGLES:       LCD_ShowAngles(servo_angles); break;
+      }
+    }
 
     switch (state)
     {
